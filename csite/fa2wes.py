@@ -107,24 +107,44 @@ def prepare_sample_normal(sample_file, args, normal_gsize):
     Create a configuration file for running snakemake
     '''
     with open(sample_file, 'w') as fout:
+        fout.write('probe: {}\n'.format(args.probe))
         fout.write('directory: normal\n')
-        fout.write("samples:\n")
 
+        fout.write("genomes:\n")
         # two normal cell haplotypes
         for parental in 0, 1:
-            fout.write("  normal.parental_{}:\n".format(parental))
-
             ref = '{}/normal.parental_{}.fa'.format(args.normal, parental)
             fullname = os.path.abspath(ref)
-            fout.write('    genome: {}\n'.format(fullname))
+            fout.write("  normal.parental_{}: {}\n".format(parental, fullname))
 
+        fout.write("samples:\n")
+        total_num_splits = 0
+        # two normal cell haplotypes
+        for parental in 0, 1:
+            ref = '{}/normal.parental_{}.fa'.format(args.normal, parental)
             proportion = genomesize(fasta=ref) / normal_gsize
-            fout.write('    proportion: {}\n'.format(str(proportion)))
-
             readnum = int((proportion * args.normal_depth *
                        args.target_size) / args.read_length)
             readnum = int(readnum / args.capture_efficiency)
-            fout.write('    readnum: {}\n'.format(str(readnum)))
+
+            if readnum > args.max_readnum:
+                num_splits = int(numpy.ceil(readnum / args.max_readnum))
+                total_num_splits += num_splits
+                for split in range(1, num_splits+1):
+                    fout.write("  normal.parental_{}_{}:\n".format(parental, str(split)))
+                    fout.write('    gid: normal.parental_{}\n'.format(parental))
+                    fout.write('    proportion: {}\n'.format(str(proportion/num_splits)))
+                    fout.write('    split: {}\n'.format(str(split)))
+                    split_readnum = int(numpy.ceil(readnum/num_splits))
+                    fout.write('    readnum: {}\n'.format(str(split_readnum)))
+            else:
+                total_num_splits += 1
+                fout.write("  normal.parental_{}:\n".format(parental))
+                fout.write('    gid: normal.parental_{}\n'.format(parental))
+                fout.write('    proportion: {}\n'.format(str(proportion)))
+                fout.write('    readnum: {}\n'.format(str(readnum)))
+
+    return total_num_splits
 
 
 def prepare_sample_tumor(sample_file, args, total_cells, normal_cells, normal_gsize, tip_node_leaves, tip_node_gsize):
@@ -132,46 +152,86 @@ def prepare_sample_tumor(sample_file, args, total_cells, normal_cells, normal_gs
     Create a configuration file for running snakemake
     '''
     with open(sample_file, 'w') as fout:
+        fout.write('probe: {}\n'.format(args.probe))
         fout.write('directory: tumor\n')
-        fout.write("samples:\n")
-
+        fout.write("genomes:\n")
         # two normal cell haplotypes
         for parental in 0, 1:
-            fout.write("  normal.parental_{}:\n".format(parental))
-
             ref = '{}/normal.parental_{}.fa'.format(args.normal, parental)
             fullname = os.path.abspath(ref)
-            fout.write('    genome: {}\n'.format(fullname))
+            fout.write("  normal.parental_{}: {}\n".format(parental, fullname))
+        # tumor cells haplotypes
+        for tip_node in sorted(tip_node_leaves.keys()):
+            for parental in 0, 1:
+                ref = '{}/{}.parental_{}.fa'.format(
+                    args.tumor, tip_node, parental)
+                fullname = os.path.abspath(ref)
+                fout.write('  {}.parental_{}: {}\n'.format(tip_node, parental, fullname))
 
+
+        fout.write("samples:\n")
+        total_num_splits = 0
+        # two normal cell haplotypes
+        for parental in 0, 1:
+            ref = '{}/normal.parental_{}.fa'.format(args.normal, parental)
+            fullname = os.path.abspath(ref)
             cell_proportion = normal_cells / total_cells
-            fout.write('    cell_proportion: {}\n'.format(str(cell_proportion)))
             proportion = cell_proportion * genomesize(fasta=ref) / normal_gsize
-            fout.write('    proportion: {}\n'.format(str(proportion)))
-
             readnum = int((proportion * args.depth *
                        args.target_size) / args.read_length)
             readnum = int(readnum / args.capture_efficiency)
-            fout.write('    readnum: {}\n'.format(str(readnum)))
+
+            if readnum > args.max_readnum:
+                num_splits = int(numpy.ceil(readnum / args.max_readnum))
+                total_num_splits += num_splits
+                for split in range(1, num_splits+1):
+                    fout.write("  normal.parental_{}_{}:\n".format(parental, str(split)))
+                    fout.write('    gid: normal.parental_{}\n'.format(parental))
+                    fout.write('    cell_proportion: {}\n'.format(str(cell_proportion)))
+                    fout.write('    proportion: {}\n'.format(str(proportion/num_splits)))
+                    fout.write('    split: {}\n'.format(str(split)))
+                    split_readnum = int(numpy.ceil(readnum/num_splits))
+                    fout.write('    readnum: {}\n'.format(str(split_readnum)))
+            else:
+                total_num_splits += 1
+                fout.write("  normal.parental_{}:\n".format(parental))
+                fout.write('    gid: normal.parental_{}\n'.format(parental))
+                fout.write('    cell_proportion: {}\n'.format(str(cell_proportion)))
+                fout.write('    proportion: {}\n'.format(str(proportion)))
+                fout.write('    readnum: {}\n'.format(str(readnum)))
 
         # tumor cells haplotypes
         for tip_node in sorted(tip_node_leaves.keys()):
             for parental in 0, 1:
-                fout.write("  {}.parental_{}:\n".format(tip_node, parental))
-
                 ref = '{}/{}.parental_{}.fa'.format(
                     args.tumor, tip_node, parental)
                 fullname = os.path.abspath(ref)
-                fout.write('    genome: {}\n'.format(fullname))
-
                 cell_proportion = tip_node_leaves[tip_node] / total_cells
-                fout.write('    cell_proportion: {}\n'.format(str(cell_proportion)))
                 proportion = cell_proportion * tip_node_gsize[tip_node][parental] / tip_node_gsize[tip_node][2]
-                fout.write('    proportion: {}\n'.format(str(proportion)))
-
                 readnum = int((proportion * args.depth *
                            args.target_size) / args.read_length)
                 readnum = int(readnum / args.capture_efficiency)
-                fout.write('    readnum: {}\n'.format(str(readnum)))
+
+                if readnum > args.max_readnum:
+                    num_splits = int(numpy.ceil(readnum / args.max_readnum))
+                    total_num_splits += num_splits
+                    for split in range(1, num_splits+1):
+                        fout.write("  {}.parental_{}_{}:\n".format(tip_node, parental, str(split)))
+                        fout.write('    gid: {}.parental_{}\n'.format(tip_node, parental))
+                        fout.write('    proportion: {}\n'.format(str(proportion/num_splits)))
+                        fout.write('    split: {}\n'.format(str(split)))
+                        split_readnum = int(numpy.ceil(readnum/num_splits))
+                        fout.write('    readnum: {}\n'.format(str(split_readnum)))
+                else:
+                    total_num_splits += 1
+                    fout.write("  {}.parental_{}:\n".format(tip_node, parental))
+                    fout.write('    gid: {}.parental_{}\n'.format(tip_node, parental))
+                    fout.write('    cell_proportion: {}\n'.format(str(cell_proportion)))
+                    fout.write('    proportion: {}\n'.format(str(proportion)))
+                    fout.write('    readnum: {}\n'.format(str(readnum)))
+    return total_num_splits
+
+
 
 def run_snakemake(outdir, args, jobs, sample_file, snake_file, cluster_file):
     stddir = os.path.join(outdir, 'stdout')
@@ -211,6 +271,8 @@ def main(progname=None):
                        help='the directory of the tumor fasta')
     parse.add_argument('-c', '--chain', required=True,
                        help='the directory of the tumor chain')
+    parse.add_argument( '--probe', required=True,
+                       help='the file containing the sequences of target region')
     default = 'wes_reads'
     parse.add_argument('-o', '--output', type=str, default=default,
                        help='output directory [{}]'.format(default))
@@ -227,6 +289,9 @@ def main(progname=None):
     default = 0.5
     parse.add_argument('--capture_efficiency', type=float, default=default,
                        help='the capture efficiency of the capture kit [{}]'.format(default))
+    default = 1e6
+    parse.add_argument('--max_readnum', type=int, default=default,
+                       help='the number of maximum short reads [{}] for a single run of simulation'.format(default))
     default = 150
     parse.add_argument('--read_length', type=int, default=default,
                        help='Illumina: read length [{}]'.format(default))
@@ -286,10 +351,10 @@ def main(progname=None):
         total_dna = (normal_dna + tumor_dna)
 
         sample_file = os.path.join(outdir, 'config/sample.yaml')
-        prepare_sample_tumor(sample_file, args, total_cells, normal_cells, normal_gsize, tip_node_leaves, tip_node_gsize)
+        total_num_splits = prepare_sample_tumor(sample_file, args, total_cells, normal_cells, normal_gsize, tip_node_leaves, tip_node_gsize)
 
-        jobs = 4 * (len(tip_node_leaves) * 2 + 2)
-
+        # jobs = 4 * (len(tip_node_leaves) * 2 + 2)
+        jobs = total_num_splits
         run_snakemake(outdir, args, jobs, sample_file, snake_file, cluster_file)
 
     if args.normal_depth > 0:
@@ -301,8 +366,8 @@ def main(progname=None):
             os.makedirs(configdir)
 
         sample_file = os.path.join(outdir, 'config/sample.yaml')
-        prepare_sample_normal(sample_file, args, normal_gsize)
+        total_num_splits = prepare_sample_normal(sample_file, args, normal_gsize)
 
-        jobs = 8
+        jobs = total_num_splits
 
         run_snakemake(outdir, args, jobs, sample_file, snake_file, cluster_file)

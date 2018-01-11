@@ -4,7 +4,7 @@
 # Author: Hechuan Yang
 # Created Time: 2017-06-21 10:51:08
 # File Name: csite.py
-# Description: 
+# Description:
 #########################################################################
 
 """Convenience wrapper for running csite directly from source tree."""

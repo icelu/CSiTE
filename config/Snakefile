@@ -4,26 +4,35 @@ shell.executable("/bin/bash")
 # unofficial bash strict mode
 shell.prefix("set -euo pipefail;")# don't forget trailing semicolon
 
+done_list=[]
+for sample in config['samples'].keys():
+    gid=config['samples'][sample]['gid']
+    done_list.append("log/reads/{}/{}.done".format(gid,sample))
+
+
+def sim_done(wildcards):
+    return expand("reads/{gid}/{sample}_{index}.fastq.gz", gid=config['samples'][wildcards.sample]['gid'], sample=wildcards.sample, index=range(1,3))
+
 
 rule all:
     input:
-        expand("log/{sample}.done", sample=config['samples'].keys())
+        done_list
 
-rule check_done:
+rule sim_done:
     input:
-        expand("reads/{{sample}}_{index}.fastq.gz", index=range(1,3))
+        sim_done
     output:
-        touch("log/{sample}.done")
+        touch("log/reads/{gid}/{sample}.done")
 
 
 rule build_index:
     input:
-        genome=lambda wildcards: config['samples'][wildcards.sample]['genome'],
-    output:
-        expand("genome_index/{{sample}}.{index}.bt2", index=range(1,5)),
-        expand("genome_index/{{sample}}.rev.{index}.bt2", index=range(1,3)),
+        genome=lambda wildcards: config['genomes'][wildcards.gid],
     params:
-        prefix="genome_index/{sample}"
+        prefix="genome_index/{gid}"
+    output:
+        expand("genome_index/{{gid}}.{index}.bt2",  index=range(1,5)),
+        expand("genome_index/{{gid}}.rev.{index}.bt2", index=range(1,3)),
     log:
         "log/build_index.log"
     shell:
@@ -34,15 +43,14 @@ rule build_index:
 
 rule align_probe:
     input:
-        expand("genome_index/{{sample}}.{index}.bt2", index=range(1,5)),
-        expand("genome_index/{{sample}}.rev.{index}.bt2", index=range(1,3)),
-        probe="/mnt/projects/lub/workspace/results/csite/wessim/S03723314/S03723314_Probes.txt.fa",
+        rules.build_index.output,
+        probe = config['probe']
     output:
-        bam="mapping/{sample}.sorted.bam",
-        bai="mapping/{sample}.sorted.bam.bai",
+        bam="mapping/{gid}.sorted.bam",
+        bai="mapping/{gid}.sorted.bam.bai",
     params:
-        rprefix="genome_index/{sample}",
-        bprefix="mapping/{sample}.sorted",
+        rprefix="genome_index/{gid}",
+        bprefix="mapping/{gid}.sorted",
     log:
         "log/align_probe.log"
     shell:
@@ -51,19 +59,20 @@ rule align_probe:
         samtools index {output.bam}
         '''
 
+
 rule run_capsim:
     input:
-        genome=lambda wildcards: config['samples'][wildcards.sample]['genome'],
-        bam="mapping/{sample}.sorted.bam",
-        bai="mapping/{sample}.sorted.bam.bai",
+        genome=lambda wildcards: config['genomes'][wildcards.gid],
+        bam="mapping/{gid}.sorted.bam",
+        bai="mapping/{gid}.sorted.bam.bai",
     params:
         readnum=lambda wildcards: config['samples'][wildcards.sample]['readnum'],
-        sprefix="reads/{sample}",
+        sprefix="reads/{gid}/{sample}",
     output:
-        expand("reads/{{sample}}_{index}.fastq.gz", index=range(1,3))
+        expand("reads/{{gid}}/{{sample}}_{index}.fastq.gz", index=range(1,3))
     log:
         "log/run_capsim.log"
     shell:
         '''
-        jsa.sim.capsim --reference {input.genome} --probe {input.bam} --ID {wildcards.sample}  --miseq {params.sprefix} --fmedian {config[fmedian]} --illen {config[rlen]} --num {params.readnum} --seed {config[seed]}
+        jsa.sim.capsim --reference {input.genome} --probe {input.bam} --ID {wildcards.sample} --miseq {params.sprefix} --fmedian {config[fmedian]} --illen {config[rlen]} --num {params.readnum} --seed {config[seed]}
         '''
