@@ -122,18 +122,6 @@ def main():
             iL.append((chr(k + qualbase), i[k]))
         iQList.append(bisect_choiceTUP(iL))
 
-    # choose read length
-    if readlength == 0:
-        rdlog.info('Using empirical read length distribution')
-        lgth = []
-        keys = rdLenD.keys()
-        keys.sort()
-        for k in keys:
-            lgth.append((k, rdLenD[k]))
-        RL = bisect_choiceTUP(lgth)
-    else:
-        RL = ln(readlength)
-
     # Generate!
     wread = None
     wread2 = None
@@ -153,24 +141,31 @@ def main():
     with open(fragment_file, 'rb') as fin:
         i = 0
         for seq in fin:
+            seq = seq.strip()
             i += 1
             fragment_chrom, fragment_start, ref = seq.split('\t')
             refLen = len(ref)
             if refLen < readlength:
                 continue
             if not paired:
-                readLen = RL()
+                readLen = readlength
+                print('not paired reflen {}; readlen {}'.format(refLen, readLen))
                 read1, pos, dir, quals1 = readGen1(ref, refLen, readLen, gens(
                 ), readLen, mx1, insDict, delDict, gQList, bQList, iQList, qualbase)
+                if read1 is None:
+                    continue
                 head1 = '@' + 'r' + str(i) + '_from_' + seqgenome + ";" + fragment_chrom + \
                     "_" + str(int(fragment_start) + pos + 1) + "_" + dirtag[dir]
             else:
                 val = random.random()
-                ln1 = RL()
-                ln2 = RL()
+                ln1 = readlength
+                ln2 = readlength
                 inter = fragsize
+                print('paired reflen {}; readlen {}'.format(refLen, readlength))
                 read1, pos1, dir1, quals1, read2, pos2, dir2, quals2 = readGenp(
                     ref, refLen, ln1, ln2, gens(), mx1, insDict1, delDict1, gQList, bQList, iQList, qualbase)
+                if read1 is None or read2 is None:
+                    continue
                 p1 = fragment_chrom + "_" + \
                     str(int(fragment_start) + pos1 + 1) + "_" + dirtag[dir1]
                 p2 = fragment_chrom + "_" + \
@@ -343,10 +338,10 @@ def ln(length):
 
 def readGen1(ref, refLen, readLen, genos, inter, mx1, insD1, delD1, gQ, bQ, iQ, qual):
     """Generates a random read of desired length from a reference."""
+    assert refLen >= readLen
     ind = 0
     dir = random.randint(1, 2)
     end = ind + readLen
-
     read = ref[ind:end]
 
     if dir == 2:
@@ -361,8 +356,10 @@ def readGen1(ref, refLen, readLen, genos, inter, mx1, insD1, delD1, gQ, bQ, iQ, 
 
 def readGenp(ref, refLen, readLen1, readLen2, genos, mx1, insD1, delD1, gQ, bQ, iQ, qual):
     """Generates a pair of reads from given DNA fragment."""
+    assert refLen >= readLen1 and refLen >= readLen2
     cRef = comp(ref)[::-1]
     ind1 = 0
+    ind2 = refLen - readLen2
     end1 = ind1 + readLen1
     dir1 = 1
     dir2 = 2
@@ -374,37 +371,13 @@ def readGenp(ref, refLen, readLen1, readLen2, genos, mx1, insD1, delD1, gQ, bQ, 
                              insD1, delD1, gQ, bQ, iQ, qual)
     pairorder = random.randint(1, 2)
     if pairorder == 1:
+        # r1=[read1, ind1, dir1, quals1, read2, ind2, dir2, quals2]
+        # print('r1: {}\n'.format(str(r1)))
         return read1, ind1, dir1, quals1, read2, ind2, dir2, quals2
     else:
+        # r2=[read2, ind2, dir2, quals2, read1, ind1, dir1, quals1]
+        # print('r2: {}\n'.format(str(r2)))
         return read2, ind2, dir2, quals2, read1, ind1, dir1, quals1
-
-
-def readGen2(reference, cRef, pos, dir, readLen, genos, inter, mx2, insD2, delD2, gQ, bQ, iQ, qual):
-    """Generates the 2nd read of a random pair of reads."""
-    refLen = len(reference)
-    readPlus = int(readLen * 1.5)
-
-    if dir == 1:
-        end = pos + inter
-        start = end - readPlus
-        if start < 0:
-            start = 0
-        read = cRef[start:end]
-        # if genos != '':
-        #     read = mutate(read, start, genos, refLen, 2, readPlus, hd)
-        read = read[::-1]
-        read, quals = mkErrors(read, readLen, mx2, insD2,
-                               delD2, gQ, bQ, iQ, qual)
-    else:
-        start = pos - inter + 1
-        end = start + readPlus
-        read = reference[start:end]
-        # if genos != '':
-        #     read = mutate(read, start, genos, refLen, 1, readPlus, hd)
-        read, quals = mkErrors(read, readLen, mx2, insD2,
-                               delD2, gQ, bQ, iQ, qual)
-
-    return read, quals
 
 
 def mutate(read, ind, gens, refLen, dir, readLn, hd):
@@ -590,6 +563,7 @@ def mkErrors(read, readLen, mx, insD, delD, gQ, bQ, iQ, qual):
     quals = ''.join(qualslist)[:readLen]
     if len(quals) != len(read):
         print("unexpected stop")
+        print('read {}, quality {}'.format(read, quals))
         return None, None
     return read, quals
 

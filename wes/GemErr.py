@@ -3,32 +3,35 @@
 # Copyright (C) 2011, Kerensa McElroy.
 # kerensa@unsw.edu.au
 
-# This file is part of the sequence simulator GemSIM. 
+# This file is part of the sequence simulator GemSIM.
 # It is used to calculate a platform- and run- specific
 # error model for generating realistic sequencing reads.
 # Alternatively, users may employ one of the precomputed
 # error models distributed as part of the GemSIM package.
 
-# GemSIM is free software; it may be redistributed and 
-# modified under the terms of the GNU General Public 
+# GemSIM is free software; it may be redistributed and
+# modified under the terms of the GNU General Public
 # License as published by the Free Software Foundation,
 # either version 3 of the License, or (at your option)
 # any later version.
 
 # GemSIM is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY, without even the implied 
+# but WITHOUT ANY WARRANTY, without even the implied
 # warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
-# PURPOSE. See the GNU General Public License for more 
+# PURPOSE. See the GNU General Public License for more
 # details.
 
 # You should have recieved a copy of the GNU General Public
-# License along with GemSIM. If not, see 
-# http://www.gnu.org/licenses/. 
+# License along with GemSIM. If not, see
+# http://www.gnu.org/licenses/.
 
 
 import sys
 import getopt
-import cPickle
+try:
+   import cPickle as pickle
+except:
+   import pickle
 import gzip
 import logging
 import logging.handlers
@@ -113,7 +116,7 @@ def flip(refSlice,seq,qual,cigar):
     for i in seq:
         flipSeq+=comp[i]
     for i in refSlice:
-        flipRS+=comp[i] 
+        flipRS+=comp[i]
     for i in range(0,len(cigar),2):
         flipCig.append(cigar[i+1])
         flipCig.append(cigar[i])
@@ -182,7 +185,7 @@ def updateM(ref,pos,seq,qual,cig,circ,mxNum,maxIndel,dir,readLen,excl):
         elif cig[i+1]=='N':
             refSlice+=ref[RposL:RposR] #cut before masked section.
             RposR+=cig[i]
-            RposL=RposR 
+            RposL=RposR
     if cigH[-1]=='S':
         RposR+=cigH[-2]
     refSlice+=ref[RposL:RposR]
@@ -220,7 +223,7 @@ def updateM(ref,pos,seq,qual,cig,circ,mxNum,maxIndel,dir,readLen,excl):
     for i in range(0,len(cig),2):
         if cig[i+1]=='H':
             seq=seq[:Spos]+'N'*cig[i]+seq[Spos:]
-            Spos+=cig[i]            
+            Spos+=cig[i]
         elif cig[i+1]=='M' or cig[i+1]=='S' or cig[i+1]=='X' or cig[i+1]=='=':
             matches=cig[i]
             count=0
@@ -263,7 +266,7 @@ def updateM(ref,pos,seq,qual,cig,circ,mxNum,maxIndel,dir,readLen,excl):
                         if qualIndex in gQualL[Spos-1]:
                             gQualL[Spos-1][qualIndex]+=1
                         else:
-                            gQualL[Spos-1][qualIndex]=1 
+                            gQualL[Spos-1][qualIndex]=1
                 else:
                     if qualIndex in gQualL[Spos-1]:
                         gQualL[Spos-1][qualIndex]+=1
@@ -275,7 +278,7 @@ def updateM(ref,pos,seq,qual,cig,circ,mxNum,maxIndel,dir,readLen,excl):
                 insert=seq[Spos:Spos+cig[i]]
                 iQuals=qual[Spos:Spos+cig[i]]
                 inDel=False
-                if inDel==False: 
+                if inDel==False:
                     key=str(d0)+'.'+str(d1)+'.'+str(d2)+'.'+str(d3)+'.'+str(d4)+'.'+str(d5)
                     if key in insD[mxNum]:
                         if insert in insD[mxNum][key]:
@@ -294,11 +297,11 @@ def updateM(ref,pos,seq,qual,cig,circ,mxNum,maxIndel,dir,readLen,excl):
         elif cig[i+1]=='D':
             if cig[i]<=maxIndel:
                 inDel=False
-                if inDel==False: 
+                if inDel==False:
                     delete=cig[i]-1                                        #because of 0 index
                     key=str(d0)+'.'+str(d1)+'.'+str(d2)+'.'+str(d3)+'.'+str(d4)+'.'+str(d5)
                     if key in delD[mxNum]:
-                        delD[mxNum][key][delete]+=1 
+                        delD[mxNum][key][delete]+=1
                     else:
 			delD[mxNum][key]=[0]*maxIndel
                         delD[mxNum][key][delete]+=1
@@ -424,7 +427,7 @@ def kMers(reference,readLen,mxNum,maxIndel,minK):
                             insD[mxNum][key]=inserts
                         dels=[0]*maxIndel
                         for dk in dkeys:
-                            if k[:-3]==''.join(dk.split('.')[:3]) and k[-1]==dk[-1]: 
+                            if k[:-3]==''.join(dk.split('.')[:3]) and k[-1]==dk[-1]:
                                 dele=delD[mxNum][dk]
                                 for e,d in enumerate(dele):
                                     dels[e]+=d
@@ -432,7 +435,7 @@ def kMers(reference,readLen,mxNum,maxIndel,minK):
                             delD[mxNum][key]=dels
                         for n in range(5):
                             val=np.apply_over_axes(np.sum, matrix[mxNum][i], [2,3])[d1][d2][0][0][d5][n]
-                            matrix[mxNum][i][d1][d2][d3][d4][d5][n]=val 
+                            matrix[mxNum][i][d1][d2][d3][d4][d5][n]=val
             else:
                 for i in range(readLen+1):
                     tot=np.apply_over_axes(np.sum, matrix[mxNum][i], [3])[d1][d2][d3][0][d5][5]
@@ -447,7 +450,7 @@ def kMers(reference,readLen,mxNum,maxIndel,minK):
                                 if s in inserts:
                                     inserts[s]+=ins[s]
                                 else:
-                                    inserts[s]=ins[s] 
+                                    inserts[s]=ins[s]
                     if inserts!={}:
                         insD[mxNum][key]=inserts
                     dels=[0]*maxIndel
@@ -478,7 +481,7 @@ def lowCov(readLen,mxNum):
                                     matrix[mxNum][i][j][k][l][m][n][o]=int(avg*matrix[mxNum][i][j][k][l][m][n][5])
 
 def mkMxSingle(readLen,ref,samFile,name,skip,circular,maxIndel,excl,minK):
-    """Creates matrices of positional errors, insertions, deletions and bases in a sam file.""" 
+    """Creates matrices of positional errors, insertions, deletions and bases in a sam file."""
     try:
         f=open(samFile)
     except:
@@ -523,7 +526,7 @@ def mkMxSingle(readLen,ref,samFile,name,skip,circular,maxIndel,excl,minK):
                         rdLenD[seqLen]+=1
                     else:
                         rdLenD[seqLen]=1
-                    if flag & 0x10:          
+                    if flag & 0x10:
                         #reverse complement
                         updateM(ref[chr],pos,seq,qual,cigList,circular,0,maxIndel,'r',readLen,excl)
                     else:
@@ -541,19 +544,19 @@ def mkMxSingle(readLen,ref,samFile,name,skip,circular,maxIndel,excl,minK):
     #write error models to files
     modelName=name+'_s.gzip'
     g=gzip.open(modelName,'wb')
-    cPickle.dump(readLen,g)
-    cPickle.dump(matrix[0], g)
-    cPickle.dump(insD[0], g)
-    cPickle.dump(delD[0], g)
-    cPickle.dump(gQualL,g)
-    cPickle.dump(bQualL,g)
-    cPickle.dump(iQualL,g)
-    cPickle.dump(readCount,g)
-    cPickle.dump(rdLenD,g)
+    pickle.dump(readLen,g)
+    pickle.dump(matrix[0], g)
+    pickle.dump(insD[0], g)
+    pickle.dump(delD[0], g)
+    pickle.dump(gQualL,g)
+    pickle.dump(bQualL,g)
+    pickle.dump(iQualL,g)
+    pickle.dump(readCount,g)
+    pickle.dump(rdLenD,g)
     g.close()
     errlog.info(str(lineCount)+' unpaired reads in total.')
     errlog.info('Parsed '+str(readCount)+'reads in total.')
-    errlog.debug('Error models written to files.') 
+    errlog.debug('Error models written to files.')
 
 def mkMxPaired(readLen,ref,samFile,name,skip,circular,maxIndel,excl,minK):
     """Creates matrices of positional errors, insertions, deletions and bases in a sam file."""
@@ -589,7 +592,7 @@ def mkMxPaired(readLen,ref,samFile,name,skip,circular,maxIndel,excl,minK):
     while line[0]=='@':
         line=f.readline()
     while line:
-        lineCount+=1 
+        lineCount+=1
         if skip==0 or lineCount%skip==0:                      #remove headers
                 parts=line.split('\t')
                 flag=int(parts[1])
@@ -628,7 +631,7 @@ def mkMxPaired(readLen,ref,samFile,name,skip,circular,maxIndel,excl,minK):
                             updateM(ref[chr],pos,seq,qual,cigList,circular,1,maxIndel,'f',readLen,excl)
                         readCount+=1
                         rds[0]+=1
-                        if (flag & 0x08): 
+                        if (flag & 0x08):
                             #track alignment of mates
                             mates[0]+=1
                     if (flag & 0x80):                     #matrices for 2nd read in pair
@@ -639,7 +642,7 @@ def mkMxPaired(readLen,ref,samFile,name,skip,circular,maxIndel,excl,minK):
                         readCount+=1
                         rds[1]+=1
                         if (flag & 0x08):
-                            #track alignment of mates 
+                            #track alignment of mates
                             mates[1]+=1
         line=f.readline()
     mx=np.add.reduce(matrix[1],axis=0)
@@ -653,26 +656,26 @@ def mkMxPaired(readLen,ref,samFile,name,skip,circular,maxIndel,excl,minK):
     #write error models to files
     modelName=name+'_p.gzip'
     g=gzip.open(modelName,'wb')
-    cPickle.dump(readLen,g)
-    cPickle.dump(matrix[1],g)
-    cPickle.dump(matrix[2],g)
-    cPickle.dump(insD[1],g)
-    cPickle.dump(insD[2],g)
-    cPickle.dump(delD[1],g)
-    cPickle.dump(delD[2],g)
-    cPickle.dump(intD,g)
-    cPickle.dump(gQualL,g)
-    cPickle.dump(bQualL,g)
-    cPickle.dump(iQualL,g)
-    cPickle.dump(mates,g)
-    cPickle.dump(rds,g)
-    cPickle.dump(rdLenD,g)
+    pickle.dump(readLen,g)
+    pickle.dump(matrix[1],g)
+    pickle.dump(matrix[2],g)
+    pickle.dump(insD[1],g)
+    pickle.dump(insD[2],g)
+    pickle.dump(delD[1],g)
+    pickle.dump(delD[2],g)
+    pickle.dump(intD,g)
+    pickle.dump(gQualL,g)
+    pickle.dump(bQualL,g)
+    pickle.dump(iQualL,g)
+    pickle.dump(mates,g)
+    pickle.dump(rds,g)
+    pickle.dump(rdLenD,g)
     g.close()
     errlog.info(str(lineCount)+' paired reads in total.')
-    errlog.info('Parsed '+str(readCount)+' reads to create model.') 
+    errlog.info('Parsed '+str(readCount)+' reads to create model.')
     errlog.info(str(float(mates[0])/float(rds[0]))+'% first reads in pair with bad mates.')
     errlog.info(str(float(mates[1])/float(rds[1]))+'% second reads in pair with bad mates.')
-                                                                                            
+
 def usage():
     print '\n\n########################################################################'
     print '# GemSIM - Generic Error Model based SIMulator of N.G. sequencing data #'
@@ -680,7 +683,7 @@ def usage():
     print '\nGemErr.py:\n'
     print 'Takes a sam file and catalogues all the mismatches, insertions, and deletions'
     print 'to create an error model for a particular sequencing run. Known true SNP'
-    print 'positions may be excluded.' 
+    print 'positions may be excluded.'
     print '\nOptions:'
     print '      -h prints these instructions.'
     print '      -r read length. Set to LONGEST read in dataset.'
@@ -688,7 +691,7 @@ def usage():
     print '      -s input file in sam format.'
     print '      -n desired output filename prefix.'
     print '      -c specifies reference genome is circular. Otherwise assumed linear.'
-    print '      -i use only every ith read for model (optional, must be odd).' 
+    print '      -i use only every ith read for model (optional, must be odd).'
     print '      -m maximum indel size (optional, default=4).'
     print '      -p use only if your data contains paired end reads.'
     print '      -k minimum k-mer frequency in reference. (Default=0)'
@@ -753,6 +756,6 @@ def main(argv):
     else:
         errlog.info('Treating reads as unpaired.')
         mkMxSingle(readLen,reference,samfile,name,skip,circular,maxIndel,excl,minK)
-    
+
 if __name__=="__main__":
     main(sys.argv[1:])

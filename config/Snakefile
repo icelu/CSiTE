@@ -16,8 +16,8 @@ def sim_done(wildcards):
 
 rule all:
     input:
-        done_list
-
+        done_list,
+        expand("merged/capgem_merged_{index}.fastq.gz", index=range(1, 3))
 
 rule build_index:
     input:
@@ -85,7 +85,7 @@ rule simulate_reads:
     shell:
         '''
         source activate /home/lub/venv/py27
-        frag2read -f {input.frag} -M {input.fmodel} -p -l {config[rlen]}  -o {params.sprefix} -z
+        frag2read.py -f {input.frag} -M {input.fmodel} -p -l {config[rlen]}  -o {params.sprefix} -z
         source /home/lub/venv/py27/bin/deactivate
         '''
 

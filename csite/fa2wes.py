@@ -383,6 +383,9 @@ def main(progname=None):
 
     assert os.path.isfile(snake_file), 'Cannot find Snakefile under the program directory'
 
+    # Add folder wes to system path for simulation
+    wes_dir = os.path.join(os.path.dirname(sys.argv[0]), 'wes')
+    os.environ["PATH"] += os.pathsep + wes_dir
 
     normal_gsize = compute_normal_gsize(args.normal)
 
