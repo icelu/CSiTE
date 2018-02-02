@@ -138,7 +138,7 @@ def pywalker(path):
 pywalker('/mnt/projects/lub/workspace/results/csite/vcf_WHT154_26102017/wes_reads/normal')
 
 
-def clean_output(level=0, outdir):
+def clean_output(level outdir):
     '''
     Remove intermediate output according to the specified levels.
     Level 0: keep all the files.
@@ -336,7 +336,7 @@ def run_snakemake(outdir, args, jobs, sample_file, snake_file):
     logging.info(' Command: %s', ' '.join(final_cmd_params))
 
     os.system(' '.join(final_cmd_params))
-    clean_output(args.out_level)
+    clean_output(args.out_level, outdir)
 
 
 
@@ -432,7 +432,7 @@ def main(progname=None):
     else:
         snake_file = os.path.join(os.path.dirname(sys.argv[0]), 'config/Snakefile')
         capgem_dir = os.path.join(wes_dir, 'capgem')
-        os.environ["PATH"] += os.pathsep + os.path.join(capgem_dir, 'bin')  
+        os.environ["PATH"] += os.pathsep + os.path.join(capgem_dir, 'bin')
         os.environ["PATH"] += os.pathsep + os.path.join(capgem_dir, 'src')
 
     assert os.path.isfile(snake_file), 'Cannot find Snakefile under the program directory'
