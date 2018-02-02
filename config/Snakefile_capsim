@@ -19,6 +19,7 @@ rule all:
         done_list,
         expand("merged/capsim_merged_{index}.fastq.gz", index=range(1, 3))
 
+
 rule build_index:
     input:
         genome=lambda wildcards: config['genomes'][wildcards.gid],

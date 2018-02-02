@@ -127,6 +127,48 @@ def compute_tumor_dna(tumor_dir, tip_node_leaves):
 
     return tip_node_gsize, tumor_dna
 
+import os
+def pywalker(path):
+    for entry in os.scandir(path):
+        if entry.is_dir():
+            print(entry.name)
+            print(entry.path)
+
+
+pywalker('/mnt/projects/lub/workspace/results/csite/vcf_WHT154_26102017/wes_reads/normal')
+
+
+def clean_output(level=0, outdir):
+    '''
+    Remove intermediate output according to the specified levels.
+    Level 0: keep all the files.
+    Level 1: remove "stdout", ".snakemake", "log", "XXX_reads".
+    Level 2: keep "config", "genome_index", "mapping", "frags"(capgem), "merged".
+    Level 3: keep only "merged".
+    '''
+    if level == 0:
+        return
+    elif level == 1:
+        # Remove tracking files while running snakemake
+        dirs_del = ["stdout", ".snakemake"]
+        for entry in os.scandir(path):
+            if entry.is_dir():
+                if entry.name in dirs_del or "reads" in entry.name:
+                    shutil.rmtree(entry.path)
+    elif level == 2:
+        # Used to rerun based on previous mapping results
+        dirs_keep = ["config", "genome_index", "mapping", "frags", "merged"]
+        for entry in os.scandir(path):
+            if entry.is_dir():
+                if entry.name not in dirs_keep:
+                    shutil.rmtree(entry.path)
+    elif level == 3:
+        # Only keep the final reads
+        for entry in os.scandir(path):
+            if entry.is_dir():
+                if entry.name != "merged":
+                    shutil.rmtree(entry.path)
+
 
 def prepare_sample_normal(sample_file, args, normal_gsize):
     '''
@@ -294,6 +336,7 @@ def run_snakemake(outdir, args, jobs, sample_file, snake_file):
     logging.info(' Command: %s', ' '.join(final_cmd_params))
 
     os.system(' '.join(final_cmd_params))
+    clean_output(args.out_level)
 
 
 
@@ -340,10 +383,10 @@ def main(progname=None):
                        help='the seed for random number generator [{}]'.format(default))
     default = 'wessim'
     group2.add_argument('--wes', type=str, default=default,
-                       help='the whole-exome sequencing simulator (available choices: wessim, capsim, capgem) used for simulating short reads [{}]'.format(default))
+                       help='The whole-exome sequencing simulator (available choices: wessim, capsim, capgem) used for simulating short reads [{}]'.format(default))
     default = 'snakemake --rerun-incomplete -k --latency-wait 120 --config fmedian=500'
     group2.add_argument('--snakemake', type=str, default=default,
-                       help='the parameters for calling a whole-exome sequencing simulator [{}]'.format(default))
+                       help='The command used for calling a whole-exome sequencing simulator [{}]'.format(default))
     default = False
     group2.add_argument('--use_cluster', action='store_true', default=default,
                    help='Run simulation on a cluster [{}]'.format(default))
@@ -351,11 +394,13 @@ def main(progname=None):
     group3 = parser.add_argument_group('Output options')
     default = 'wes_reads'
     group3.add_argument('-o', '--output', type=str, default=default,
-                       help='output directory [{}]'.format(default))
+                       help='The output directory [{}]'.format(default))
     default = 'fa2wes.log'
     group3.add_argument('-g', '--log', type=str, default=default,
-                       help='the log file to save the settings of each command [{}]'.format(default))
-
+                       help='The log file to save the settings of each command [{}]'.format(default))
+    default = 1
+    group2.add_argument('--out_level', type=int, default=default,
+                       help='The level used to indicate how many intermediate output files are kept [{}]'.format(default))
 
     args = parser.parse_args()
 
@@ -374,18 +419,25 @@ def main(progname=None):
 
     check_input(args)
 
+    # Add folder wes to system path for simulation
+    wes_dir = os.path.join(os.path.dirname(sys.argv[0]), 'wes')
+    os.environ["PATH"] += os.pathsep + wes_dir
+
     if args.wes == "capsim":
         snake_file = os.path.join(os.path.dirname(sys.argv[0]), 'config/Snakefile_capsim')
     elif args.wes == "wessim":
         snake_file = os.path.join(os.path.dirname(sys.argv[0]), 'config/Snakefile_wessim')
+        wessim_dir = os.path.join(wes_dir, 'wessim')
+        os.environ["PATH"] += os.pathsep + wessim_dir
     else:
         snake_file = os.path.join(os.path.dirname(sys.argv[0]), 'config/Snakefile')
+        capgem_dir = os.path.join(wes_dir, 'capgem')
+        os.environ["PATH"] += os.pathsep + os.path.join(capgem_dir, 'bin')  
+        os.environ["PATH"] += os.pathsep + os.path.join(capgem_dir, 'src')
 
     assert os.path.isfile(snake_file), 'Cannot find Snakefile under the program directory'
 
-    # Add folder wes to system path for simulation
-    wes_dir = os.path.join(os.path.dirname(sys.argv[0]), 'wes')
-    os.environ["PATH"] += os.pathsep + wes_dir
+
 
     normal_gsize = compute_normal_gsize(args.normal)
 

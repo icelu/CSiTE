@@ -5,7 +5,10 @@ import random
 import bisect
 import pysam
 import gzip
-import cPickle
+try:
+   import cPickle as pickle
+except:
+   import pickle
 import numpy
 from time import time
 import argparse
@@ -467,40 +470,40 @@ def parseModel(gzipFile,paired,readlen):
 	"""prepares error models for input to mkErrors."""
 	file=gzip.open(gzipFile,'rb')
 	if paired:
-		modReadLen=cPickle.load(file)
+		modReadLen=pickle.load(file)
 		if readlen!='d' and readlen>modReadLen:
 			print("Inappropriate read length chosen for model. Maximum for this model: " + str(modReadLen))
 			file.close()
 			sys.exit()
-		mx1=cPickle.load(file)
-		mx2=cPickle.load(file)
-		insD1=cPickle.load(file)
-		insD2=cPickle.load(file)
-		delD1=cPickle.load(file)
-		delD2=cPickle.load(file)
-		intD=cPickle.load(file)
-		gQualL=cPickle.load(file)
-		bQualL=cPickle.load(file)
-		iQualL=cPickle.load(file)
-		mates=cPickle.load(file)
-		rds=cPickle.load(file)
-		rdLenD=cPickle.load(file)
+		mx1=pickle.load(file)
+		mx2=pickle.load(file)
+		insD1=pickle.load(file)
+		insD2=pickle.load(file)
+		delD1=pickle.load(file)
+		delD2=pickle.load(file)
+		intD=pickle.load(file)
+		gQualL=pickle.load(file)
+		bQualL=pickle.load(file)
+		iQualL=pickle.load(file)
+		mates=pickle.load(file)
+		rds=pickle.load(file)
+		rdLenD=pickle.load(file)
 		file.close()
 		return mx1,mx2,insD1,insD2,delD1,delD2,intD,gQualL,bQualL,iQualL,mates,rds,rdLenD
 	else:
-		modReadLen=cPickle.load(file)
+		modReadLen=pickle.load(file)
 		if readlen!='d' and readlen>modReadLen:
 			print("Inappropriate read length chosen for model. Maximum for this model: " + str(modReadLen))
 			file.close()
 			sys.exit()
-		mx=cPickle.load(file)
-		insD=cPickle.load(file)
-		delD=cPickle.load(file)
-		gQualL=cPickle.load(file)
-		bQualL=cPickle.load(file)
-		iQualL=cPickle.load(file)
-		readCount=cPickle.load(file)
-		rdLenD=cPickle.load(file)
+		mx=pickle.load(file)
+		insD=pickle.load(file)
+		delD=pickle.load(file)
+		gQualL=pickle.load(file)
+		bQualL=pickle.load(file)
+		iQualL=pickle.load(file)
+		readCount=pickle.load(file)
+		rdLenD=pickle.load(file)
 		file.close()
 		return mx,insD,delD,gQualL,bQualL,iQualL,readCount,rdLenD
 

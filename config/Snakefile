@@ -19,6 +19,7 @@ rule all:
         done_list,
         expand("merged/capgem_merged_{index}.fastq.gz", index=range(1, 3))
 
+
 rule build_index:
     input:
         genome=lambda wildcards: config['genomes'][wildcards.gid],
@@ -88,6 +89,7 @@ rule simulate_reads:
         frag2read.py -f {input.frag} -M {input.fmodel} -p -l {config[rlen]}  -o {params.sprefix} -z
         source /home/lub/venv/py27/bin/deactivate
         '''
+
 
 rule mark_done:
     input:
