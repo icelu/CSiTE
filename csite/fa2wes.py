@@ -14,7 +14,7 @@ import numpy
 import logging
 import pyfaidx
 import subprocess
-from csite.phylovar import check_seed, random_int
+# from csite.phylovar import check_seed, random_int
 import shutil
 # handle the error below
 # python | head == IOError: [Errno 32] Broken pipe
@@ -22,7 +22,7 @@ from signal import signal, SIGPIPE, SIG_DFL
 signal(SIGPIPE, SIG_DFL)
 
 
-MAX_INT = 1e8   # CapSim cannot accept a seed that is too large
+# MAX_INT = 1e8   # CapSim cannot accept a seed that is too large
 
 def check_input(args):
     # there must be two haplotype fasta in the normal dir
@@ -127,20 +127,10 @@ def compute_tumor_dna(tumor_dir, tip_node_leaves):
 
     return tip_node_gsize, tumor_dna
 
-import os
-def pywalker(path):
-    for entry in os.scandir(path):
-        if entry.is_dir():
-            print(entry.name)
-            print(entry.path)
 
-
-pywalker('/mnt/projects/lub/workspace/results/csite/vcf_WHT154_26102017/wes_reads/normal')
-
-
-def clean_output(level outdir):
+def clean_output(level, outdir):
     '''
-    Remove intermediate output according to the specified levels.
+    Remove intermediate output of WES simulators according to the specified levels.
     Level 0: keep all the files.
     Level 1: remove "stdout", ".snakemake", "log", "XXX_reads".
     Level 2: keep "config", "genome_index", "mapping", "frags"(capgem), "merged".
@@ -151,20 +141,20 @@ def clean_output(level outdir):
     elif level == 1:
         # Remove tracking files while running snakemake
         dirs_del = ["stdout", ".snakemake"]
-        for entry in os.scandir(path):
+        for entry in os.scandir(outdir):
             if entry.is_dir():
                 if entry.name in dirs_del or "reads" in entry.name:
                     shutil.rmtree(entry.path)
     elif level == 2:
         # Used to rerun based on previous mapping results
         dirs_keep = ["config", "genome_index", "mapping", "frags", "merged"]
-        for entry in os.scandir(path):
+        for entry in os.scandir(outdir):
             if entry.is_dir():
                 if entry.name not in dirs_keep:
                     shutil.rmtree(entry.path)
     elif level == 3:
         # Only keep the final reads
-        for entry in os.scandir(path):
+        for entry in os.scandir(outdir):
             if entry.is_dir():
                 if entry.name != "merged":
                     shutil.rmtree(entry.path)
@@ -346,46 +336,46 @@ def main(progname=None):
         prog=progname if progname else sys.argv[0])
 
     group1 = parser.add_argument_group('Input options')
-    group1.add_argument('-n', '--normal', required=True,
-                       help='the directory of the fasta files of normal genomes')
-    group1.add_argument('-t', '--tumor', required=True,
-                       help='the directory of the fasta files of tumor genomes')
-    group1.add_argument('-c', '--chain', required=True,
-                       help='the directory of the tumor chain files')
-    group1.add_argument( '--probe', required=True,
-                       help='the file containing the sequences of target region')
+    group1.add_argument('-n', '--normal', metavar='DIR', required=True,
+                       help='The directory of the fasta files of normal genomes')
+    group1.add_argument('-t', '--tumor', metavar='DIR', required=True,
+                       help='The directory of the fasta files of tumor genomes')
+    group1.add_argument('-c', '--chain', metavar='DIR', required=True,
+                       help='The directory of the tumor chain files')
+    group1.add_argument( '--probe', metavar='FILE', required=True,
+                       help='The file containing the sequences of target region')
 
     group2 = parser.add_argument_group('Parameters for sequencing')
     group = group2.add_mutually_exclusive_group()
-    default = 0
-    group.add_argument('-d', '--depth', type=float, default=default,
-                       help='the mean depth of tumor for simulating short reads [{}]'.format(default))
-    default = 0
-    group.add_argument('-D', '--normal_depth', type=float, default=default,
-                       help='the mean depth of normal for simulating short reads [{}]'.format(default))
-    default = 51189318
-    group2.add_argument('--target_size', type=int, default=default,
-                       help='the size of target regions for simulating short reads [{}]'.format(default))
+    default = 100
+    group.add_argument('-d', '--depth', metavar='FLOAT', type=float, default=default,
+                       help='The mean depth of tumor for simulating short reads [{}]'.format(default))
+    default = 100
+    group.add_argument('-D', '--normal_depth', metavar='FLOAT', type=float, default=default,
+                       help='The mean depth of normal for simulating short reads [{}]'.format(default))
     default = 0.5
-    group2.add_argument('--capture_efficiency', type=float, default=default,
-                       help='the capture efficiency of the capture kit [{}]'.format(default))
-    default = 1e6
-    group2.add_argument('--max_readnum', type=int, default=default,
-                       help='the number of maximum short reads [{}] for a single run of simulation'.format(default))
+    group2.add_argument('-p', '--purity', metavar='FLOAT', type=float, default=default,
+                       help='The proportion of tumor cells in simulated sample [{}]'.format(default))
     default = 150
-    group2.add_argument('--read_length', type=int, default=default,
+    group2.add_argument('--read_length', metavar='INT', type=int, default=default,
                        help='Illumina: read length [{}]'.format(default))
+    default = 51189318
+    group2.add_argument('--target_size', metavar='INT', type=int, default=default,
+                       help='The size of target regions for simulating short reads [{}]'.format(default))
     default = 0.5
-    group2.add_argument('-p', '--purity', type=float, default=default,
-                       help='the proportion of tumor cells in simulated sample [{}]'.format(default))
-    default = None
-    group2.add_argument('-s', '--random_seed', type=check_seed,
-                       help='the seed for random number generator [{}]'.format(default))
+    group2.add_argument('--capture_efficiency', metavar='FLOAT', type=float, default=default,
+                       help='The capture efficiency of the capture kit [{}]'.format(default))
+    default = 1e6
+    group2.add_argument('--max_readnum', metavar='INT', type=int, default=default,
+                       help='The number of maximum short reads [{}] for a single run of simulation'.format(default))
+    # default = None
+    # group2.add_argument('-s', '--random_seed', type=check_seed,
+    #                    help='The seed for random number generator [{}]'.format(default))
     default = 'wessim'
-    group2.add_argument('--wes', type=str, default=default,
-                       help='The whole-exome sequencing simulator (available choices: wessim, capsim, capgem) used for simulating short reads [{}]'.format(default))
+    group2.add_argument('--wes', nargs='?', default=default, choices=['wessim', 'capsim', 'capgem'],
+                       help='The whole-exome sequencing simulator used for simulating short reads [{}]'.format(default))
     default = 'snakemake --rerun-incomplete -k --latency-wait 120 --config fmedian=500'
-    group2.add_argument('--snakemake', type=str, default=default,
+    group2.add_argument('--snakemake', metavar='STR', type=str, default=default,
                        help='The command used for calling a whole-exome sequencing simulator [{}]'.format(default))
     default = False
     group2.add_argument('--use_cluster', action='store_true', default=default,
@@ -393,14 +383,18 @@ def main(progname=None):
 
     group3 = parser.add_argument_group('Output options')
     default = 'wes_reads'
-    group3.add_argument('-o', '--output', type=str, default=default,
+    group3.add_argument('-o', '--output', metavar='DIR', type=str, default=default,
                        help='The output directory [{}]'.format(default))
     default = 'fa2wes.log'
-    group3.add_argument('-g', '--log', type=str, default=default,
+    group3.add_argument('-g', '--log', metavar='FILE', type=str, default=default,
                        help='The log file to save the settings of each command [{}]'.format(default))
     default = 1
-    group2.add_argument('--out_level', type=int, default=default,
-                       help='The level used to indicate how many intermediate output files are kept [{}]'.format(default))
+    group3.add_argument('--out_level', metavar='INT', type=int, default=default,
+                       help='The level used to indicate how many intermediate output files are kept [{}]. \
+                       Level 0: keep all the files.\
+                           Level 1: remove "stdout", ".snakemake", "log", "XXX_reads". \
+                           Level 2: keep "config", "genome_index", "mapping", "frags"(capgem), "merged".\
+                           Level 3: keep only "merged".'.format(default))
 
     args = parser.parse_args()
 
@@ -410,12 +404,12 @@ def main(progname=None):
                         datefmt='%m-%d %H:%M:%S', level='INFO')
     logging.info(' Command: %s', ' '.join(sys.argv))
 
-    if args.random_seed == None:
-        seed = random_int()
-    else:
-        seed = args.random_seed
-    logging.info(' Random seed: %s', seed)
-    numpy.random.seed(seed)
+    # if args.random_seed == None:
+    #     seed = random_int()
+    # else:
+    #     seed = args.random_seed
+    # logging.info(' Random seed: %s', seed)
+    # numpy.random.seed(seed)
 
     check_input(args)
 
@@ -436,8 +430,6 @@ def main(progname=None):
         os.environ["PATH"] += os.pathsep + os.path.join(capgem_dir, 'src')
 
     assert os.path.isfile(snake_file), 'Cannot find Snakefile under the program directory'
-
-
 
     normal_gsize = compute_normal_gsize(args.normal)
 
