@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 #########################################################################
-# Author: Hechuan
+# Author: Hechuan Yang
 # Created Time: 2017-04-04 18:00:34
 # File Name: phylovar.py
 # Description: 
@@ -13,6 +13,7 @@ import re
 import argparse
 import numpy
 import logging
+import copy
 import csite.trunk_vars
 import csite.tree
 import yaml
@@ -81,10 +82,10 @@ def check_tstv(value=None):
 def check_folder(directory=None):
     good_charactors=re.compile('^[0-9a-zA-Z/_\-]+$') 
     if not good_charactors.match(directory):
-        raise argparse.ArgumentTypeError("{} is an invalid string for --chain. ".format(directory)+
+        raise argparse.ArgumentTypeError("'{}' is an invalid string for --chain. ".format(directory)+
             "Please only use number, alphabet and _/- in the directory name.")
     if os.path.exists(directory):
-        raise argparse.ArgumentTypeError("{} is already exist. Delete it or use another name instead.".format(directory))
+        raise argparse.ArgumentTypeError("'{}' exists already. Delete it or use another name instead.".format(directory))
     return directory
     
 def check_cnv_length_cfg(chroms=None,cnv_length_beta=None,cnv_length_max=None,chr_length=None):
@@ -140,13 +141,13 @@ def check_config_file(config=None):
         raise ConfigFileError('Check your config file. The format in genome section is not correct.')
     lack=set(cfg_params)-set(config['genome'])
     if lack!=set():
-        raise ConfigFileError('{} are required in the genome section of config file.'.format(','.join([str(x) for x in lack])))
+        raise ConfigFileError("'{}' are required in the genome section of config file.".format(','.join([str(x) for x in lack])))
     over=set(config['genome'])-set(cfg_params)
     if over!=set():
-        raise ConfigFileError('{} are not acceptable parameters in config file.'.format(','.join([str(x) for x in over])))
+        raise ConfigFileError("'{}' are not acceptable parameters in config file.".format(','.join([str(x) for x in over])))
 
     for parameter in cfg_params:
-        assert isinstance(config['genome'][parameter],cfg_params[parameter]),'{} in genome section of config file should be a {}!'.format(parameter,cfg_params[parameter].__name__)
+        assert isinstance(config['genome'][parameter],cfg_params[parameter]),"'{}' in genome section of config file should be a {}!".format(parameter,cfg_params[parameter].__name__)
 
     if not isinstance(config['chromosomes'],list):
         raise ConfigFileError('Check your config file. The format in chromosomes section is not correct.')
@@ -162,12 +163,12 @@ def check_config_file(config=None):
             assert isinstance(chroms_n,str),'The name of chromosome {} in config file should be a str!'.format(chroms_n)
             over=set(chroms_cfg)-set(cfg_params)
             if over!=set():
-                raise ConfigFileError('{} are not acceptable parameters '.format(','.join([str(x) for x in over]))+
+                raise ConfigFileError("'{}' are not acceptable parameters ".format(','.join([str(x) for x in over]))+
                     'in the section of chromosome {} in your config file!'.format(chroms))
             for parameter in chroms_cfg.keys():
-                assert isinstance(chroms_cfg[parameter],cfg_params[parameter]),'{} in of chromosome {} in config file should be a {}!'.format(parameter,chroms_n,cfg_params[parameter].__name__)
+                assert isinstance(chroms_cfg[parameter],cfg_params[parameter]),"'{}' in of chromosome {} in config file should be a {}!".format(parameter,chroms_n,cfg_params[parameter].__name__)
             if 'length' not in chroms_cfg:
-                raise ConfigFileError('Can not find length for chromosome:{}.'.format(chroms_n))
+                raise ConfigFileError("Couldn't find the length of chromosome:{}.".format(chroms_n))
             total_chroms_length+=chroms_cfg['length']
             if 'snv_rate' in chroms_cfg:
                 total_snv_rate+=chroms_cfg['snv_rate']
@@ -203,99 +204,101 @@ def main(progname=None):
     parse=argparse.ArgumentParser(
         description='Simulate SNVs/CNVs on a coalescent tree in newick format',
         prog=progname if progname else sys.argv[0])
-    parse.add_argument('-t','--tree',required=True,
-        help='a file contains ONE tree in newick format')
+    group1=parse.add_argument_group('Input Files')#, 'input files')
+    group1.add_argument('-t','--tree',required=True,metavar='FILE',
+        help='a file containing ONE tree in newick format')
+    default=None
+    group1.add_argument('--trunk_vars',type=str,default=default,metavar='FILE',
+        help='a file containing truncal variants predefined by user [{}]'.format(default))
+    default=None
+    group1.add_argument('--config',type=str,default=default,metavar='FILE',
+        help='a YAML file which contains the configuration of somatic variant simulation. '+
+            '-n/-r/-R/-d/-l/-L/-c/-C/-p/--tstv/--length will be ignored. [{}]'.format(default))
+    group2=parse.add_argument_group('Simulation Parameters (can be set in config YAML)')
     default='1'
-    parse.add_argument('-n','--name',type=str,default=default,
+    group2.add_argument('-n','--name',type=str,default=default,metavar='STR',
         help='the name of the sequence to be simulated [{}]'.format(default))
     default=300
-    parse.add_argument('-r','--snv_rate',type=float,default=default,
+    group2.add_argument('-r','--snv_rate',type=float,default=default,metavar='FLOAT',
         help='the muation rate of SNVs [{}]'.format(default))
     default=3
-    parse.add_argument('-R','--cnv_rate',type=float,default=default,
+    group2.add_argument('-R','--cnv_rate',type=float,default=default,metavar='FLOAT',
         help='the muation rate of CNVs [{}]'.format(default))
     default=0.5
-    parse.add_argument('-d','--del_prob',type=int,default=default,
+    group2.add_argument('-d','--del_prob',type=float,default=default,metavar='FLOAT',
         help='the probability of being deletion for a CNV mutation [{}]'.format(default))
 #https://en.wikipedia.org/wiki/Copy-number_variation
     default=20000000
-    parse.add_argument('-l','--cnv_length_beta',type=int,default=default,
+    group2.add_argument('-l','--cnv_length_beta',type=int,default=default,metavar='INT',
         help='the mean of CNVs length [{}]'.format(default))
     default=40000000
-    parse.add_argument('-L','--cnv_length_max',type=int,default=default,
+    group2.add_argument('-L','--cnv_length_max',type=int,default=default,metavar='INT',
         help='the maximium of CNVs length [{}]'.format(default))
     default=0.5
-    parse.add_argument('-c','--copy_parameter',type=float,default=default,
+    group2.add_argument('-c','--copy_parameter',type=float,default=default,metavar='FLOAT',
         help="the p parameter of CNVs' copy number distribution [{}]".format(default))
     default=5
-    parse.add_argument('-C','--copy_max',type=int,default=default,
+    group2.add_argument('-C','--copy_max',type=int,default=default,metavar='INT',
         help='the maximium ADDITIONAL copy of a CNVs [{}]'.format(default))
     default='01'
-    parse.add_argument('-p','--parental',type=str,default=default,
+    group2.add_argument('-p','--parental',type=str,default=default,metavar='STR',
         help='the parental to simulate [{}]'.format(default))
-#    default=1.0
-#    parse.add_argument('-P','--purity',type=float,default=default,
-#        help="the purity of tumor cells in the simulated sample [{}]".format(default))
-#    default=50
-#    parse.add_argument('-D','--depth',type=float,default=default,
-#        help='the mean depth for simulating coverage data [{}]'.format(default))
+    default=2.0
+    group2.add_argument('--tstv',type=check_tstv,default=default,metavar='FLOAT',
+        help='the ratio of ts/tv of SNV [{}]'.format(default))
+    default=100000000
+    group2.add_argument('--length',type=int,default=default,metavar='INT',
+        help='the length of the sequence to simulate [{}]'.format(default))
+    group3=parse.add_argument_group('Other Simulation Parameters (can NOT be set in config YAML)')
     default=0
-    parse.add_argument('-x','--prune',type=check_prune,default=default,
-        help='trim all the children of the nodes with equal or less than this number of tips [{}]'.format(default))
+    group3.add_argument('-x','--prune',type=check_prune,default=default,metavar='INT',
+        help='trim all the children of the nodes with equal or less than this number of leaves [{}]'.format(default))
     default=0.0
-    parse.add_argument('-X','--prune_proportion',type=check_proportion,default=default,
-        help='trim all the children of the nodes with equal or less than this proportion of tips [{}]'.format(default))
+    group3.add_argument('-X','--prune_proportion',type=check_proportion,default=default,metavar='FLOAT',
+        help='trim all the children of the nodes with equal or less than this proportion of total leaves [{}]'.format(default))
     default=None
-    parse.add_argument('-s','--random_seed',type=check_seed,
+    group3.add_argument('-s','--random_seed',type=check_seed,metavar='INT',
         help='the seed for random number generator [{}]'.format(default))
-    default='output.snvs'
-    parse.add_argument('-S','--snv',type=str,default=default,
+    default=0
+    group3.add_argument('--trunk_length',type=float,default=default,metavar='FLOAT',
+        help='the length of the trunk [{}]'.format(default))
+    group4=parse.add_argument_group('Output Related Parameters')
+    default='phylovar.snvs'
+    group4.add_argument('-S','--snv',type=str,default=default,metavar='FILE',
         help='the output file to save SNVs [{}]'.format(default))
-    default='output.cnvs'
-    parse.add_argument('-V','--cnv',type=str,default=default,
+    default='phylovar.cnvs'
+    group4.add_argument('-V','--cnv',type=str,default=default,metavar='FILE',
         help='the output file to save CNVs [{}]'.format(default))
-#    default='output.nodes_vars'
-#    parse.add_argument('-N','--nodes_vars',type=str,default=default,
-#        help='the output file to save SNVs/CNVs on each node [{}]'.format(default))
-    default=None
-    parse.add_argument('-T','--vars_tree',type=str,default=default,
-        help='the output file in NHX format to save the tree with nodeid and all variants [{}]'.format(default))
     default='phylovar.log'
-    parse.add_argument('-g','--log',type=str,default=default,
+    group4.add_argument('-g','--log',type=str,default=default,metavar='FILE',
         help='the log file [{}]'.format(default))
     default='INFO'
-    parse.add_argument('-G','--loglevel',type=str,default=default,choices=['DEBUG','INFO'],
+    group4.add_argument('-G','--loglevel',type=str,default=default,choices=['DEBUG','INFO'],
         help='the logging level [{}]'.format(default))
-    default='output.cnvs.profile'
-    parse.add_argument('--cnv_profile',type=str,default=default,
+    default=None
+    group4.add_argument('--nhx',type=str,default=default,metavar='FILE',
+        help='the output file in NHX format to save the pruned tree with all variants [{}]'.format(default))
+    default=None
+    group4.add_argument('--NHX',type=str,default=default,metavar='FILE',
+        help='the output file in NHX format to save the original tree with all variants [{}]'.format(default))
+    default=None
+    group4.add_argument('--cnv_profile',type=str,default=default,metavar='FILE',
         help='the file to save CNVs profile [{}]'.format(default))
-    parse.add_argument('--snv_genotype',type=str,
+    group4.add_argument('--snv_genotype',type=str,metavar='FILE',
         help='the file to save SNV genotypes for each cell')
-    parse.add_argument('--ind_cnvs',type=str,
+    group4.add_argument('--ind_cnvs',type=str,metavar='FILE',
         help='the file to save CNVs for each cell individual')
 #    parse.add_argument('--haplotype_copy',type=str,
 #        help='the file to save haplotype copy for each SNV')
-    parse.add_argument('--trunk_vars',type=str,
-        help='the trunk variants file supplied by user')
-    default=0
-    parse.add_argument('--trunk_length',type=float,
-        help='the length of the truncal branch [{}]'.format(default))
 #    default=None
 #    parse.add_argument('--expands',type=str,default=default,
 #        help='the basename of the file to output the snv and segment data for EXPANDS [{}]'.format(default))
-    default=2.0
-    parse.add_argument('--tstv',type=check_tstv,default=default,
-        help='the ratio of ts/tv of SNV [{}]'.format(default))
-    default=100000000
-    parse.add_argument('--length',type=int,default=default,
-        help='the length of the sequence to simulate [{}]'.format(default))
     default=None
-    parse.add_argument('--chain',type=check_folder,default=default,
+    group4.add_argument('--map',type=str,default=default,metavar='FILE',
+        help='the map file to save the relationship between tip nodes and original samples [{}]'.format(default))
+    default=None
+    group4.add_argument('--chain',type=check_folder,default=default,metavar='DIR',
         help='directory to output chain files for each sample [{}]'.format(default))
-    default=None
-    parse.add_argument('--config',type=str,default=default,
-        help='configure file contains the setting of the somatic simulation in YAML format. '+
-            '-n/-r/-R/-d/-l/-L/-c/-C/-p will be ignored. [{}]'.format(default))
     args=parse.parse_args()
 
 ###### figure out the simulation setting for each chroms
@@ -342,7 +345,9 @@ def main(progname=None):
     logging.basicConfig(filename=args.log, filemode='w',
         format='[%(asctime)s] %(levelname)s: %(message)s',
         datefmt='%m-%d %H:%M:%S',level=args.loglevel)
-    logging.info(' Command: %s',' '.join(sys.argv))
+    argv_copy=sys.argv[:]
+    argv_copy.insert(1,'phylovar')
+    logging.info(' Command: %s',' '.join(argv_copy))
     if args.random_seed==None:
         seed=random_int()
     else:
@@ -359,8 +364,9 @@ def main(progname=None):
     mytree=csite.tree.newick2tree(newick)
     if args.trunk_length:
         mytree.lens=args.trunk_length
+#################original_tree
+    original_tree=copy.deepcopy(mytree)
     leaves_number=mytree.leaves_counting()
-    leaves_names=sorted(mytree.leaves_naming())
 
 ####### prune the tree if required
     if args.prune>0 and args.prune_proportion>0:
@@ -375,20 +381,29 @@ def main(progname=None):
         trim=leaves_number*args.prune_proportion
         if trim>=1:
             mytree.prune(tips=trim)
+    else:
+        mytree.prune(tips=0.5)
+    tipnode_leaves=mytree.tipnode_leaves
+    leaf_tipnode={}
+    leaves_names=[]
+    for tipnode,names in tipnode_leaves.items():
+        leaves_names.extend(names)
+        for name in names:
+            leaf_tipnode[name]=tipnode
+    leaves_names.sort()
 
 ###### output the map of tip_node(after pruning):leaf
     if args.chain:
-        tip_leaves=mytree.tip_node_leaves()
         os.mkdir(args.chain,mode=0o755)
-        with open(args.chain+'/tip_node_sample.map','w') as tip_leaves_f:
-            tip_leaves_f.write('#tip_node\tsample\n')
-            for tip_node in sorted(tip_leaves.keys()):
-                for leaf in sorted(tip_leaves[tip_node]):
-                    tip_leaves_f.write('{}\t{}\n'.format(tip_node,leaf))
-        with open(args.chain+'/tip_node_sample.count','w') as tip_leaves_count_f:
-            tip_leaves_count_f.write('#tip_node\tsample_count\n')
-            for tip_node in sorted(tip_leaves.keys()):
-                tip_leaves_count_f.write('{}\t{}\n'.format(tip_node,len(tip_leaves[tip_node])))
+    if args.map:
+        with open(args.map,'w') as tipnode_samples_map_f:
+            tipnode_samples_map_f.write('#tip_node\tcell_count\tcells\n')
+            for tip_node in sorted(tipnode_leaves.keys()):
+                tipnode_samples_map_f.write('{}\t{}\t'.format(tip_node,len(tipnode_leaves[tip_node])))
+                tipnode_samples_map_f.write(','.join(sorted(tipnode_leaves[tip_node])))
+                tipnode_samples_map_f.write('\n')
+
+
 
 ###### add trunk vars if supplied
     trunk_snvs={}
@@ -401,10 +416,11 @@ def main(progname=None):
     cnv_file=open(args.cnv,'w')
     cnv_file.write('#chr\tstart\tend\tcopy\tcarrier\n')
     snv_file=open(args.snv,'w')
-#    snv_file.write('#chr\tpos\tform\ttrue_freq\tsim_dp\tsim_freq\n')
-    snv_file.write('#chr\tpos\tform\tfreq\n')
-    cnv_profile_file=open(args.cnv_profile,'w')
-    cnv_profile_file.write('#chr\tstart\tend\tlocal_cp\n')
+    snv_file.write('#chr\tstart\tend\tform\tfrequency\n')
+
+    if args.cnv_profile!=None:
+        cnv_profile_file=open(args.cnv_profile,'w')
+        cnv_profile_file.write('#chr\tstart\tend\tlocal_cp\n')
 
     if args.snv_genotype!=None:
         genotype_file=open(args.snv_genotype,'w')
@@ -434,7 +450,7 @@ def main(progname=None):
         tstv_dist_cfg=tstv_dist(tstv=chroms_cfg['tstv'])
         
         (snvs_freq,cnvs,cnv_profile,nodes_vars,
-            leaf_snv_alts,leaf_snv_refs,leaf_cnvs,
+            tipnode_snv_alts,tipnode_snv_refs,tipnode_cnvs,
             )=mytree.snvs_freq_cnvs_profile(
                 parental=chroms_cfg['parental'],
                 snv_rate=chroms_cfg['snv_rate'],
@@ -446,7 +462,6 @@ def main(progname=None):
                 tstv_dist_cfg=tstv_dist_cfg,
                 trunk_snvs=trunk_snvs.get(chroms,{}),
                 trunk_cnvs=trunk_cnvs.get(chroms,{}),
-#                purity=args.purity,
                 length=chroms_cfg['length'],
                 chain=args.chain,
                 chroms=chroms,
@@ -457,28 +472,28 @@ def main(progname=None):
         if args.snv_genotype!=None:
             for pos in all_snvs_pos:
                 genotype_file.write('{}\t{}\t{}\n'.format(chroms,pos,
-                    '\t'.join([str(leaf_snv_alts[leaf][pos])+':'+str(leaf_snv_refs[leaf][pos]) for leaf in leaves_names])))
+                    '\t'.join([str(tipnode_snv_alts[leaf_tipnode[leaf]][pos])+':'+str(tipnode_snv_refs[leaf_tipnode[leaf]][pos]) for leaf in leaves_names])))
 
         if args.ind_cnvs!=None:
-            for leaf in sorted(leaf_cnvs.keys()):
-                for cnv in leaf_cnvs[leaf]:
-                    ind_cnvs_file.write('{}\n'.format('\t'.join([str(x) for x in [leaf,cnv['parental'],chroms,cnv['start'],cnv['end'],cnv['copy']]])))
+            for leaf in leaves_names:
+                for cnv in tipnode_cnvs[leaf_tipnode[leaf]]:
+                    cnv_copy='+{}'.format(cnv['copy']) if cnv['copy']>0 else str(cnv['copy'])
+                    ind_cnvs_file.write('{}\n'.format('\t'.join([str(x) for x in [leaf,cnv['parental'],chroms,cnv['start'],cnv['end'],cnv_copy]])))
 
 #        if args.haplotype_copy!=None:
 #            for snv in hap_local_copy_for_all_snvs:
 #                parental_copy_file.write('{}\t{}\n'.format(chroms,'\t'.join([str(x) for x in snv])))
 
         for cnv in cnvs:
-            cnv_file.write('{}\t{}\t{}\t{}\t{}\n'.format(chroms,cnv['start'],cnv['end'],cnv['copy'],cnv['leaves_count']))
+            cnv_copy='+{}'.format(cnv['copy']) if cnv['copy']>0 else str(cnv['copy'])
+            cnv_file.write('{}\t{}\t{}\t{}\t{}\n'.format(chroms,cnv['start'],cnv['end'],cnv_copy,cnv['leaves_count']))
 
         for pos,mutation,freq in snvs_freq:
-            snv_file.write('{}\t{}\t{}\t{}\n'.format(chroms,pos,mutation,freq))
-            #total_dp,b_allele_dp=csite.tree.simulate_sequence_coverage(args.depth,freq)
-            #b_allele_freq=b_allele_dp/total_dp if total_dp!=0 else 0
-            #snv_file.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(chroms,pos,mutation,freq,total_dp,b_allele_freq))
+            snv_file.write('{}\t{}\t{}\t{}\t{}\n'.format(chroms,pos,pos+1,mutation,freq))
 
-        for seg in cnv_profile:
-            cnv_profile_file.write('{}\n'.format('\t'.join([str(x) for x in [chroms]+seg])))
+        if args.cnv_profile!=None:
+            for seg in cnv_profile:
+                cnv_profile_file.write('{}\n'.format('\t'.join([str(x) for x in [chroms]+seg])))
 
 ##output for expands
 #        if args.expands != None:
@@ -494,7 +509,9 @@ def main(progname=None):
 ###### close all opened files
     cnv_file.close()
     snv_file.close()
-    cnv_profile_file.close()
+
+    if args.cnv_profile!=None:
+        cnv_profile_file.close()
 
     if args.snv_genotype!=None:
         genotype_file.close()
@@ -509,24 +526,16 @@ def main(progname=None):
 #        expands_snps_file.close()
 #        expands_segs_file.close()
 
-##output a nhx tree instead of the list
-##output SNVs/CNVs on each node
-#    nodes_vars_file=open(args.nodes_vars,'w')
-#    nodes_vars_file.write('#node\tchr\tstart\tend\tvar\n')
-#    for node in sorted(all_nodes_vars.keys(),key=lambda x: int(x[4:])):
-#        vars_list=[x.split('#') for x in all_nodes_vars[node]]
-#        vars_list=sorted(vars_list,key=lambda x:(x[0],int(x[1]),int(x[2])))
-#        for var in vars_list:
-#            nodes_vars_file.write('{}\t{}\n'.format(node,'\t'.join(var)))
-#    nodes_vars_file.close()
-
 #TODO: Should we change pickle to json or yaml?
 #http://stackoverflow.com/questions/4677012/python-cant-pickle-type-x-attribute-lookup-failed
 #FIXME: right now, it does not consider the deletion effect on pre_snvs.
 #FIXME: output in .nhx format
-    if args.vars_tree!=None:
+    if args.nhx!=None:
         mytree.attach_info(attr='vars',info=all_nodes_vars)
-        with open(args.vars_tree,'w') as tree_data_file:
-            tree_data_file.write('{};\n'.format(mytree.tree2newick(lens=True,attrs=['nodeid','vars'])))
-#            pickle.dump(mytree,tree_data_file)
+        with open(args.nhx,'w') as tree_data_file:
+            tree_data_file.write('{};\n'.format(mytree.tree2nhx(with_lens=True,attrs=['nodeid','vars'])))
 
+    if args.NHX!=None:
+        original_tree.attach_info(attr='vars',info=all_nodes_vars)
+        with open(args.NHX,'w') as tree_data_file:
+            tree_data_file.write('{};\n'.format(original_tree.tree2nhx(with_lens=True,attrs=['nodeid','vars'])))

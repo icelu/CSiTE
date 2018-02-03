@@ -346,12 +346,12 @@ def main(progname=None):
                        help='The file containing the sequences of target region')
 
     group2 = parser.add_argument_group('Parameters for sequencing')
-    group = group2.add_mutually_exclusive_group()
+    # group = group2.add_mutually_exclusive_group()
     default = 100
-    group.add_argument('-d', '--depth', metavar='FLOAT', type=float, default=default,
+    group2.add_argument('-d', '--depth', metavar='FLOAT', type=float, default=default,
                        help='The mean depth of tumor for simulating short reads [{}]'.format(default))
     default = 100
-    group.add_argument('-D', '--normal_depth', metavar='FLOAT', type=float, default=default,
+    group2.add_argument('-D', '--normal_depth', metavar='FLOAT', type=float, default=default,
                        help='The mean depth of normal for simulating short reads [{}]'.format(default))
     default = 0.5
     group2.add_argument('-p', '--purity', metavar='FLOAT', type=float, default=default,
@@ -359,6 +359,8 @@ def main(progname=None):
     default = 150
     group2.add_argument('--read_length', metavar='INT', type=int, default=default,
                        help='Illumina: read length [{}]'.format(default))
+
+    # TODO: Comute target size from probe sequences
     default = 51189318
     group2.add_argument('--target_size', metavar='INT', type=int, default=default,
                        help='The size of target regions for simulating short reads [{}]'.format(default))
@@ -423,11 +425,15 @@ def main(progname=None):
         snake_file = os.path.join(os.path.dirname(sys.argv[0]), 'config/Snakefile_wessim')
         wessim_dir = os.path.join(wes_dir, 'wessim')
         os.environ["PATH"] += os.pathsep + wessim_dir
+        file_path = os.path.join(wessim_dir, 'src/Wessim2.py')
+        subprocess.call(['chmod', '0755', file_path])
     else:
         snake_file = os.path.join(os.path.dirname(sys.argv[0]), 'config/Snakefile')
         capgem_dir = os.path.join(wes_dir, 'capgem')
         os.environ["PATH"] += os.pathsep + os.path.join(capgem_dir, 'bin')
         os.environ["PATH"] += os.pathsep + os.path.join(capgem_dir, 'src')
+        file_path = os.path.join(capgem_dir, 'src/frag2read.py')
+        subprocess.call(['chmod', '0755', file_path])
 
     assert os.path.isfile(snake_file), 'Cannot find Snakefile under the program directory'
 
