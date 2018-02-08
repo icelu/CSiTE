@@ -17,8 +17,8 @@ import logging
 import subprocess
 import pyfaidx
 from csite.vcf2fa import check_sex
-from csite.phylovar import check_prune,check_proportion,check_seed,random_int,check_config_file
-from csite.fa2wgs import check_depth,check_purity
+from csite.phylovar import check_prune,check_proportion,check_seed,check_purity,random_int,check_config_file
+from csite.fa2wgs import check_depth
 
 #handle the error below
 #python | head == IOError: [Errno 32] Broken pipe 
@@ -56,7 +56,7 @@ def main(progname=None):
     default=0
     parse.add_argument('-D','--normal_depth',type=check_depth,default=default,metavar='FLOAT',
         help='the mean depth of normal sample for ART to simulate NGS reads [{}]'.format(default))
-    default=0.5
+    default=0.8
     parse.add_argument('-p','--purity',type=check_purity,default=default,metavar='FLOAT',
         help='the proportion of tumor cells in simulated tumor sample [{}]'.format(default))
     default=None
@@ -82,9 +82,15 @@ def main(progname=None):
         help='number of cores used to run the program [{}]'.format(default))
     parse.add_argument('--compress',action="store_true",
         help='compress the generated fastq files using gzip')
+    parse.add_argument('--seperate',action="store_true",
+        help="keep each tip node's NGS reads file seperately")
     parse.add_argument('--single',action="store_true",
-        help="single cell mode. Output each tip node's NGS reads file seperately")
+        help="single cell mode. "+\
+        "After this setting, the value of --depth is the depth of each tumor cell "+\
+        "(not the total depth of tumor sample anymore).")
     args=parse.parse_args()
+    if (args.prune or args.prune_proportion) and args.single:
+        raise argparse.ArgumentTypeError("Can not prune the tree in single cell mode!")
     with open(args.config,'r') as configfile:
         config=yaml.safe_load(configfile)
     check_config_file(config=config)
@@ -100,8 +106,8 @@ def main(progname=None):
     if args.start==1:
         try:
             os.mkdir(outdir,mode=0o755)
-        except FileExistsError:
-            exit("'{}' already exists. Try another directory to output! (-o/--output)".format(outdir))
+        except FileExistsError as e:
+            raise OutputExistsError("'{}' already exists. Try another directory to output! (-o/--output)".format(outdir)) from e
     else:
         assert os.path.isdir(outdir),"Couldn't start from step {}, ".format(args.start)+\
             "because I can not find the directory of previous results: '{}'.".format(outdir)
@@ -158,9 +164,12 @@ def main(progname=None):
         cmd_params=[sys.argv[0],'phylovar',
                     '--tree',tree,
                     '--config',config,
+                    '--purity',str(args.purity),
                     '--random_seed',str(random_n),
                     '--map',map_file,
                     '--chain',tumor_chain]
+        if args.sex_chr:
+            cmd_params.extend(['--sex_chr',','.join(args.sex_chr)])
         if args.trunk_vars:
             cmd_params.extend(['--trunk_vars',trunk_vars])
         if args.trunk_length:
@@ -212,3 +221,5 @@ def main(progname=None):
     logging.info(' Command: %s',' '.join(cmd_params_copy))
     subprocess.run(args=cmd_params,check=True)
 
+class OutputExistsError(Exception):
+    pass
