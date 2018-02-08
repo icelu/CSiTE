@@ -64,7 +64,7 @@ import japsa.util.deploy.Deployable;
  *
  */
 @Deployable(
-		scriptName = "jsa.sim.capsim",
+		scriptName = "capsim",
 		scriptDesc = "Simulate capture sequencing"
 		)
 public class SimulateCaptureCmd extends CommandLine{

@@ -2,22 +2,21 @@
 # note, this is a naked shell, not aware of your bashrc!
 shell.executable("/bin/bash")
 # unofficial bash strict mode
-shell.prefix("set -euo pipefail;")# don't forget trailing semicolon
+shell.prefix("set -eo pipefail;")# don't forget trailing semicolon
 
 done_list=[]
 for sample in config['samples'].keys():
     gid=config['samples'][sample]['gid']
-    done_list.append("log/capsim_reads/{}/{}.done".format(gid,sample))
+    done_list.append("log/capgem_reads/{}/{}.done".format(gid,sample))
 
 
 def sim_done(wildcards):
-    return expand("capsim_reads/{gid}/{sample}_{index}.fastq.gz", gid=config['samples'][wildcards.sample]['gid'], sample=wildcards.sample, index=range(1,3))
+    return expand("capgem_reads/{gid}/{sample}_{index}.fastq.gz", gid=config['samples'][wildcards.sample]['gid'], sample=wildcards.sample, index=range(1,3))
 
 
 rule all:
     input:
         done_list,
-        expand("merged/capsim_merged_{index}.fastq.gz", index=range(1, 3))
 
 
 rule build_index:
@@ -62,14 +61,32 @@ rule run_capsim:
         bai="mapping/{gid}.sorted.bam.bai",
     params:
         readnum=lambda wildcards: config['samples'][wildcards.sample]['readnum'],
-        sprefix="capsim_reads/{gid}/{sample}",
+        sprefix="frags/{gid}/{sample}",
     output:
-        expand("capsim_reads/{{gid}}/{{sample}}_{index}.fastq.gz", index=range(1,3))
+        frag="frags/{gid}/{sample}_frag.txt"
     log:
         "log/run_capsim.log"
     shell:
         '''
-        jsa.sim.capsim --reference {input.genome} --probe {input.bam} --ID {wildcards.sample} --miseq {params.sprefix} --fmedian {config[fmedian]} --illen {config[rlen]} --num {params.readnum}
+        capsim --reference {input.genome} --probe {input.bam} --ID {wildcards.sample} --miseq {params.sprefix} --fmedian {config[fmedian]} --num {params.readnum}
+        '''
+
+
+rule simulate_reads:
+    input:
+        frag=rules.run_capsim.output,
+        fmodel = config['error_model'],
+    params:
+        sprefix="capgem_reads/{gid}/{sample}",
+    output:
+        expand("capgem_reads/{{gid}}/{{sample}}_{index}.fastq.gz", index=range(1,3))
+    log:
+        "log/simulate_reads.log"
+    shell:
+        '''
+        source activate /home/lub/venv/py27
+        frag2read.py -f {input.frag} -M {input.fmodel} -p -l {config[rlen]}  -o {params.sprefix} -z
+        source /home/lub/venv/py27/bin/deactivate
         '''
 
 
@@ -77,30 +94,4 @@ rule mark_done:
     input:
         sim_done
     output:
-        touch("log/capsim_reads/{gid}/{sample}.done")
-
-
-rule merge_reads1:
-    input:
-        done_list
-    output:
-        o1 = "merged/capsim_merged_1.fastq.gz",
-    log:
-        "log/merge_reads1.log"
-    shell:
-        '''
-        find capsim_reads/ -type f -name '*_1.fastq.gz' | sort | xargs cat > {output.o1}
-        '''
-
-
-rule merge_reads2:
-    input:
-        done_list
-    output:
-        o2 = "merged/capsim_merged_2.fastq.gz",
-    log:
-        "log/merge_reads2.log"
-    shell:
-        '''
-        find capsim_reads/ -type f -name '*_1.fastq.gz' | sort | sed 's/_1.fastq.gz/_2.fastq.gz/g' | xargs cat > {output.o2}
-        '''
+        touch("log/capgem_reads/{gid}/{sample}.done")

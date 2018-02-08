@@ -219,57 +219,7 @@ public class Deploy {
 		if (server > 0)
 			javaCommand += " -server";
 
-		////////////////////////////////////////////////////////////////////////////
-		// if (jlp == null){
-		// 	jlp = "";
-		// 	//Get path to HDFLib
-		// 	System.out.println("Japsa requires HDF library installed in order to run npReader");
-		// 	while (true){
-		// 		System.out.print("Path to HDF library: [none]?");
-		// 		line = scanner.nextLine();
-		// 		line = line.trim();
-		// 		if (line.length() <= 0)
-		// 			break;
-    //
-    //
-		// 		String [] fNix = {"libjhdf.so","libjhdf5.so"};
-		// 		String [] fWindows = {"jhdf.dll","jhdf5.dll","libhdf.lib","libhdf5.lib"};
-		// 		String [] fMac = {};//"libjhdf5.a"};
-    //
-		// 		String [] requires = isWindows ? fWindows:fNix;
-		// 		if (isMac)
-		// 			requires = fMac;
-    //
-		// 		boolean pass = true;
-		// 		for (String rLib:requires){
-		// 			File f = new File (line + File.separatorChar + rLib);
-		// 			if (!f.exists()){
-		// 				System.out.println("File " + f.getCanonicalPath() + " does not exist");
-		// 				pass = false;
-		// 				break;
-		// 			}
-		// 		}
-    //
-		// 		if (!pass)
-		// 			continue;
-    //
-		// 		String libPath = (new File(line)).getCanonicalPath();
-		// 		if (libPath.contains(" "))
-		// 			libPath = "\""+libPath + "\"";
-    //
-		// 		if (jlp.length() == 0)
-		// 			jlp = libPath;
-		// 		else
-		// 			jlp = jlp + File.pathSeparatorChar + libPath;
-		// 		break;
-		// 	}
-		// }
 		scanner.close();
-
-		// if (jlp.length() > 0){
-		// 	javaCommand += " -Djava.library.path="+jlp;
-		// }
-
 		System.out.println("Finished copying libraries\n");
 	}
 	/**
