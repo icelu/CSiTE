@@ -632,17 +632,24 @@ def mkMxPaired(readLen, ref, samFile, name, skip, circular, maxIndel, excl, minK
     readCount = 0
     rdLenD = {}
     lineCount = 0
-
-    for read in f:
+    # line = f.readline()
+    lenD = {}
+    for i in ref.keys():
+        lenD[i] = len(ref[i])
+    # while line[0] == '@':
+    #     line = f.readline()
+    # while line:
+    for line in f:
         lineCount += 1
         if skip == 0 or lineCount % skip == 0:  # remove headers
-            flag = read.flag
+            parts = line.split('\t')
+            flag = int(parts[1])
             if (flag & 0x04) == 0:  # make sure read is aligned
                 # parse sam format
-                pos = read.pos
+                pos = int(parts[3])
                 posMate = int(parts[7])
                 seq = parts[9]
-                qual = read.mapq
+                qual = parts[10]
                 cigar = parts[5]
                 chr = parts[2][:50]
                 reflen = lenD[chr]
