@@ -84,9 +84,7 @@ rule simulate_reads:
         "log/simulate_reads.log"
     shell:
         '''
-        source activate /home/lub/venv/py27
         frag2read.py -f {input.frag} -M {input.fmodel} -p -l {config[rlen]}  -o {params.sprefix} -z
-        source /home/lub/venv/py27/bin/deactivate
         '''
 
 

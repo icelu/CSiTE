@@ -71,7 +71,8 @@ def main():
         unAlign0 = (m0 * rd1 - m1 * m0) / (rd0 * rd1 - m1 * m0)
         unAlign1 = 1.0 - (unAlign0 / (m0 / rd0))
         keys = intervals.keys()
-        keys.sort()
+        # keys.sort()
+        keys = sorted(keys)
         if fragsize == 0:
             inters = []
             for k in keys:
@@ -97,7 +98,8 @@ def main():
     for i in (gQualL):
         gL = []
         keys = i.keys()
-        keys.sort()
+        # keys.sort()
+        keys = sorted(keys)
         for k in keys:
             gL.append((chr(k + qualbase), i[k]))
         gQList.append(bisect_choiceTUP(gL))
@@ -107,7 +109,8 @@ def main():
     for i in (bQualL):
         bL = []
         keys = i.keys()
-        keys.sort()
+        # keys.sort()
+        keys = sorted(keys)
         for k in keys:
             bL.append((chr(k + qualbase), i[k]))
         bQList.append(bisect_choiceTUP(bL))
@@ -117,7 +120,8 @@ def main():
     for i in (iQualL):
         iL = []
         keys = i.keys()
-        keys.sort()
+        # keys.sort()
+        keys = sorted(keys)
         for k in keys:
             iL.append((chr(k + qualbase), i[k]))
         iQList.append(bisect_choiceTUP(iL))
@@ -138,7 +142,7 @@ def main():
     dirtag = ('', '+', '-')
     count = 0
     seqgenome = "g1"
-    with open(fragment_file, 'rb') as fin:
+    with open(fragment_file, 'r') as fin:
         i = 0
         for seq in fin:
             seq = seq.strip()
@@ -149,7 +153,6 @@ def main():
                 continue
             if not paired:
                 readLen = readlength
-                print('not paired reflen {}; readlen {}'.format(refLen, readLen))
                 read1, pos, dir, quals1 = readGen1(ref, refLen, readLen, gens(
                 ), readLen, mx1, insDict, delDict, gQList, bQList, iQList, qualbase)
                 if read1 is None:
@@ -161,7 +164,6 @@ def main():
                 ln1 = readlength
                 ln2 = readlength
                 inter = fragsize
-                print('paired reflen {}; readlen {}'.format(refLen, readlength))
                 read1, pos1, dir1, quals1, read2, pos2, dir2, quals2 = readGenp(
                     ref, refLen, ln1, ln2, gens(), mx1, insDict1, delDict1, gQList, bQList, iQList, qualbase)
                 if read1 is None or read2 is None:
@@ -184,15 +186,26 @@ def main():
                     seqgenome + ";" + p1 + ":" + p2 + "/1"
                 head2 = '@' + 'r' + str(i) + '_from_' + \
                     seqgenome + ";" + p1 + ":" + p2 + "/2"
-            wread.write(head1 + '\n')
-            wread.write(read1.upper() + '\n')
-            wread.write('+\n')
-            wread.write(quals1 + '\n')
-            if paired:
-                wread2.write(head2 + "\n")
-                wread2.write(read2.upper() + "\n")
-                wread2.write("+\n")
-                wread2.write(quals2 + "\n")
+            if compress:
+                wread.write(head1.encode() + b'\n')
+                wread.write(read1.upper().encode() + b'\n')
+                wread.write(b'+\n')
+                wread.write(quals1.encode() + b'\n')
+                if paired:
+                    wread2.write(head2.encode() + b'\n')
+                    wread2.write(read2.upper().encode() + b'\n')
+                    wread2.write(b'+\n')
+                    wread2.write(quals2.encode() + b'\n')
+            else:
+                wread.write(head1 + '\n')
+                wread.write(read1.upper() + '\n')
+                wread.write('+\n')
+                wread.write(quals1 + '\n')
+                if paired:
+                    wread2.write(head2 + '\n')
+                    wread2.write(read2.upper() + '\n')
+                    wread2.write('+\n')
+                    wread2.write(quals2 + '\n')
             count += 1
             if count % 1000000 == 0 and count != 0:
                 t = time() - t0
@@ -239,10 +252,6 @@ def parseModel(gzipFile, paired, readlen):
         rds = pickle.load(file)
         rdLenD = pickle.load(file)
         file.close()
-
-        # emod = [mx1, mx2, insD1, insD2, delD1, delD2, intD, gQualL, bQualL, iQualL, mates, rds, rdLenD]
-        # print(str(emod))
-
         return mx1, mx2, insD1, insD2, delD1, delD2, intD, gQualL, bQualL, iQualL, mates, rds, rdLenD
     else:
         modReadLen = pickle.load(file)
@@ -266,13 +275,15 @@ def mkInserts(mx, insD):
     """Returns a dictionary consisting of compiled functions to make inserts."""
     insertDict = {}
     posKeys = insD.keys()
-    posKeys.sort()
+    # posKeys.sort()
+    posKeys = sorted(posKeys)
     for p in posKeys:
         indicies = p.split('.')
         tot = mx[int(indicies[0])][int(indicies[1])][int(indicies[2])][int(
             indicies[3])][int(indicies[4])][int(indicies[5])][5]
         insertKeys = insD[p].keys()
-        insertKeys.sort()
+        # insertKeys.sort()
+        insertKeys = sorted(insertKeys)
         insertList = []
         iSum = 0
         for i in insertKeys:
@@ -288,7 +299,8 @@ def mkDels(mx, delD):
     """Returns a dictionary consisting of compiled functions to make deletiosn."""
     deletionDict = {}
     posKeys = delD.keys()
-    posKeys.sort()
+    # posKeys.sort()
+    posKeys = sorted(posKeys)
     for p in posKeys:
         indicies = p.split('.')
         tot = mx[int(indicies[0])][int(indicies[1])][int(indicies[2])][int(

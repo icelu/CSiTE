@@ -26,7 +26,7 @@
 # http://www.gnu.org/licenses/.
 
 # Reivised by Bingxin Lu, 7/2/2018.
-
+# Revisions: changes to make the script can be run by either python2 or python3
 
 import sys
 import getopt
@@ -38,7 +38,7 @@ import gzip
 import logging
 import logging.handlers
 import numpy as np
-import pysam
+
 
 # Make a global logging object.
 errlog=logging.getLogger("ErrLog")
@@ -77,7 +77,8 @@ def getRef(refFile):
         sys.exit('Cannot find reference file ' +
                  refFile + '. Please check pathname.')
     i = f.readline()
-    head = i[1:51].rstrip()
+    # head = i[1:51].rstrip()
+    head = i.split()[0][1:51].rstrip()
     i = f.readline().rstrip()
     while i:
         if i[0] != '>':
@@ -92,7 +93,7 @@ def getRef(refFile):
                 ref = ref.replace(l, 'N')
             refDict[head] = ref
             hdList.append(head)
-            head = i[1:51].rstrip()
+            head = i[1:51].rstrip()     # Get the first 50 characters
             i = f.readline()
             ref = ''
     ref = ref.upper()
@@ -100,19 +101,8 @@ def getRef(refFile):
         ref = ref.replace(l, 'N')
     refDict[head] = ref
     errlog.debug('Reference file successfully parsed.')
+
     return refDict
-
-
-def parseFasta(file):
-    """Returns sequence string from FASTA format."""
-    f = open(file)
-    ref = ''
-    for i in f:
-        if i[0] != '>':
-            ref += i.rstrip()
-    for l in 'RYLMKSWHBVD':
-        ref = ref.replace(l, 'N')
-    return ref
 
 
 def flip(refSlice, seq, qual, cigar):
@@ -246,6 +236,8 @@ def updateM(ref, pos, seq, qual, cig, circ, mxNum, maxIndel, dir, readLen, excl)
             count = 0
             while count < matches:
                 Spos += 1
+                if Spos > len(seq) or Spos > len(qual):
+                    break
                 Rpos += 1
                 bPos += 1
                 count += 1
@@ -586,15 +578,15 @@ def mkMxSingle(readLen, ref, samFile, name, skip, circular, maxIndel, excl, minK
     # write error models to files
     modelName = name + '_s.gzip'
     g = gzip.open(modelName, 'wb')
-    pickle.dump(readLen, g)
-    pickle.dump(matrix[0], g)
-    pickle.dump(insD[0], g)
-    pickle.dump(delD[0], g)
-    pickle.dump(gQualL, g)
-    pickle.dump(bQualL, g)
-    pickle.dump(iQualL, g)
-    pickle.dump(readCount, g)
-    pickle.dump(rdLenD, g)
+    pickle.dump(readLen, g, protocol=0)
+    pickle.dump(matrix[0], g, protocol=0)
+    pickle.dump(insD[0], g, protocol=0)
+    pickle.dump(delD[0], g, protocol=0)
+    pickle.dump(gQualL, g, protocol=0)
+    pickle.dump(bQualL, g, protocol=0)
+    pickle.dump(iQualL, g, protocol=0)
+    pickle.dump(readCount, g, protocol=0)
+    pickle.dump(rdLenD, g, protocol=0)
     g.close()
     errlog.info(str(lineCount) + ' unpaired reads in total.')
     errlog.info('Parsed ' + str(readCount) + 'reads in total.')
@@ -604,8 +596,7 @@ def mkMxSingle(readLen, ref, samFile, name, skip, circular, maxIndel, excl, minK
 def mkMxPaired(readLen, ref, samFile, name, skip, circular, maxIndel, excl, minK):
     """Creates matrices of positional errors, insertions, deletions and bases in a sam file."""
     try:
-        # f = open(samFile)
-        f = pysam.AlignmentFile(samFile, "rb")
+        f = open(samFile, "r")
     except:
         errlog.error('Cannot find samFile ' + samFile +
                      '. Please check pathname.')
@@ -632,14 +623,13 @@ def mkMxPaired(readLen, ref, samFile, name, skip, circular, maxIndel, excl, minK
     readCount = 0
     rdLenD = {}
     lineCount = 0
-    # line = f.readline()
+    line = f.readline()
     lenD = {}
     for i in ref.keys():
         lenD[i] = len(ref[i])
-    # while line[0] == '@':
-    #     line = f.readline()
-    # while line:
-    for line in f:
+    while line[0] == '@':
+        line = f.readline()
+    while line:
         lineCount += 1
         if skip == 0 or lineCount % skip == 0:  # remove headers
             parts = line.split('\t')
@@ -651,7 +641,7 @@ def mkMxPaired(readLen, ref, samFile, name, skip, circular, maxIndel, excl, minK
                 seq = parts[9]
                 qual = parts[10]
                 cigar = parts[5]
-                chr = parts[2][:50]
+                chr = parts[2][:50] # Used to retrieve the reference sequence
                 reflen = lenD[chr]
                 cigList = parseMD(cigar)
                 # update read length dictionary
@@ -668,7 +658,7 @@ def mkMxPaired(readLen, ref, samFile, name, skip, circular, maxIndel, excl, minK
                 elif insert > reflen / 2:
                     insert = reflen - posMate + pos + len(seq)
                 if (insert > 0):
-                    if intD.has_key(insert):
+                    if insert in intD:
                         intD[insert] += 1
                     else:
                         intD[insert] = 1
@@ -708,20 +698,20 @@ def mkMxPaired(readLen, ref, samFile, name, skip, circular, maxIndel, excl, minK
     # write error models to files
     modelName = name + '_p.gzip'
     g = gzip.open(modelName, 'wb')
-    pickle.dump(readLen, g)
-    pickle.dump(matrix[1], g)
-    pickle.dump(matrix[2], g)
-    pickle.dump(insD[1], g)
-    pickle.dump(insD[2], g)
-    pickle.dump(delD[1], g)
-    pickle.dump(delD[2], g)
-    pickle.dump(intD, g)
-    pickle.dump(gQualL, g)
-    pickle.dump(bQualL, g)
-    pickle.dump(iQualL, g)
-    pickle.dump(mates, g)
-    pickle.dump(rds, g)
-    pickle.dump(rdLenD, g)
+    pickle.dump(readLen, g, protocol=0)
+    pickle.dump(matrix[1], g, protocol=0)
+    pickle.dump(matrix[2], g, protocol=0)
+    pickle.dump(insD[1], g, protocol=0)
+    pickle.dump(insD[2], g, protocol=0)
+    pickle.dump(delD[1], g, protocol=0)
+    pickle.dump(delD[2], g, protocol=0)
+    pickle.dump(intD, g, protocol=0)
+    pickle.dump(gQualL, g, protocol=0)
+    pickle.dump(bQualL, g, protocol=0)
+    pickle.dump(iQualL, g, protocol=0)
+    pickle.dump(mates, g, protocol=0)
+    pickle.dump(rds, g, protocol=0)
+    pickle.dump(rdLenD, g, protocol=0)
     g.close()
     errlog.info(str(lineCount) + ' paired reads in total.')
     errlog.info('Parsed ' + str(readCount) + ' reads to create model.')
@@ -807,7 +797,7 @@ def main(argv):
     else:
         errlog.info('Treating reference genome as linear.')
     if paired:
-        errlog.info('Treating reads as  paired.')
+        errlog.info('Treating reads as paired.')
         mkMxPaired(readLen, reference, samfile, name,
                    skip, circular, maxIndel, excl, minK)
     else:

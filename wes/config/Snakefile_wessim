@@ -73,9 +73,7 @@ rule run_wessim:
         "log/run_wessim.log"
     shell:
         '''
-        source activate /home/lub/venv/py27
         Wessim2.py -R {input.genome} -P {input.probe} -B {input.psl}  -n {params.readnum}  -l {config[rlen]} -M {input.fmodel} -pz -o {params.sprefix}
-        source /home/lub/venv/py27/bin/deactivate
         '''
 
 rule mark_done:
