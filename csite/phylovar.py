@@ -25,12 +25,12 @@ from csite.vcf2fa import check_sex
 from signal import signal, SIGPIPE, SIG_DFL 
 signal(SIGPIPE,SIG_DFL) 
 
-#TODO: check wheter parental is parental. sometimes it's mean haplotype...
+#TODO: check whether parental is parental. sometimes it's mean haplotype...
 #TODO: SNV true_freq
-#rewrite the description of the output of SNVs 
+#TODO: rewrite the description of the output of SNVs 
 
-#I defined those two parameters as global variants. As they will be used in function
-#random_int and check_config_file, which will be used in allinone.py.
+#I defined those two parameters as global variables. As they will be used in function
+#random_int and check_config_file, which are also used in allinone.py.
 largest=2**32
 cfg_params={'snv_rate':float,
             'cnv_rate':float,
@@ -277,7 +277,7 @@ def main(progname=None):
         help='the proportion of tumor cells in simulated tumor sample [{}]'.format(default))
     default=None
     group3.add_argument('--sex_chr',type=check_sex,default=default,metavar='STR',
-        help='sex chromosomes of the genome (seperated by comma) [{}]'.format(default))
+        help='sex chromosomes of the genome (separated by comma) [{}]'.format(default))
     group4=parse.add_argument_group('Output Related Parameters')
     default='phylovar.snvs'
     group4.add_argument('-S','--snv',type=str,default=default,metavar='FILE',

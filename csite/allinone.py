@@ -16,7 +16,7 @@ import yaml
 import logging
 import subprocess
 import pyfaidx
-from csite.vcf2fa import check_sex
+from csite.vcf2fa import check_sex,check_vcf,check_autosomes
 from csite.phylovar import check_prune,check_proportion,check_seed,check_purity,random_int,check_config_file
 from csite.fa2wgs import check_depth
 
@@ -31,7 +31,7 @@ def main(progname=None):
         prog=progname if progname else sys.argv[0])
     parse.add_argument('-r','--reference',type=str,required=True,metavar='FILE',
         help='a fasta file of the reference genome')
-    parse.add_argument('-v','--vcf',type=str,required=True,metavar='FILE',
+    parse.add_argument('-v','--vcf',type=check_vcf,required=True,metavar='FILE',
         help='a vcf file contains germline variants')
     parse.add_argument('-t','--tree',type=str,required=True,metavar='FILE',
         help='a newick file contains ONE tree')
@@ -39,11 +39,11 @@ def main(progname=None):
         help='a YAML file which contains the configuration of somatic variant simulation')
     parse.add_argument('-o','--output',type=str,required=True,metavar='DIR',
         help='output directory')
-    parse.add_argument('-a','--autosomes',type=str,required=True,metavar='STR',
+    parse.add_argument('-a','--autosomes',type=check_autosomes,required=True,metavar='STR',
         help='autosomes of the genome (e.g. 1,2,3,4,5 or 1..4,5)')
     default=None
     parse.add_argument('-s','--sex_chr',type=check_sex,default=default,metavar='STR',
-        help='sex chromosomes of the genome (seperated by comma) [{}]'.format(default))
+        help='sex chromosomes of the genome (separated by comma) [{}]'.format(default))
     default=0
     parse.add_argument('-x','--prune',type=check_prune,default=default,metavar='INT',
         help='trim all the children of the nodes with equal or less than this number of leaves [{}]'.format(default))
@@ -82,8 +82,8 @@ def main(progname=None):
         help='number of cores used to run the program [{}]'.format(default))
     parse.add_argument('--compress',action="store_true",
         help='compress the generated fastq files using gzip')
-    parse.add_argument('--seperate',action="store_true",
-        help="keep each tip node's NGS reads file seperately")
+    parse.add_argument('--separate',action="store_true",
+        help="keep each tip node's NGS reads file separately")
     parse.add_argument('--single',action="store_true",
         help="single cell mode. "+\
         "After this setting, the value of --depth is the depth of each tumor cell "+\
@@ -148,7 +148,7 @@ def main(progname=None):
                     '--output',normal_fa,
                     '--autosomes',args.autosomes]
         if args.sex_chr:
-            cmd_params.extend(['--sex_chr',','.join(args.sex_chr)])
+            cmd_params.extend(['--sex_chr',args.sex_chr])
         logging.info(' Command: %s',' '.join(cmd_params))
         subprocess.run(args=cmd_params,check=True)
 
@@ -169,7 +169,7 @@ def main(progname=None):
                     '--map',map_file,
                     '--chain',tumor_chain]
         if args.sex_chr:
-            cmd_params.extend(['--sex_chr',','.join(args.sex_chr)])
+            cmd_params.extend(['--sex_chr',args.sex_chr])
         if args.trunk_vars:
             cmd_params.extend(['--trunk_vars',trunk_vars])
         if args.trunk_length:
@@ -191,6 +191,7 @@ def main(progname=None):
         cmd_params=[sys.argv[0],'chain2fa',
                     '--chain',tumor_chain,
                     '--normal','{dir}/normal.parental_0.fa,{dir}/normal.parental_1.fa'.format(dir=normal_fa),
+                    '--cores',str(args.cores),
                     '--output',tumor_fa]
         logging.info(' Command: %s',' '.join(cmd_params))
         subprocess.run(args=cmd_params,check=True)
